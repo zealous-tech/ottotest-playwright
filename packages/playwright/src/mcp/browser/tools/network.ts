@@ -127,22 +127,26 @@ const requests = defineTabTool({
       const res = await req.response().catch(() => null);
       if (keywordsNorm.length === 0) {
         const out = await safeRender(req, res, logType);
-        response.addResult(out);
+        if (hasBodyError(out))
+          continue;
+        response.addResult({ text: out });
         return;
       }
 
       try {
         const detailed = await renderRequestDetailed(req, res, logType);
+        if (hasBodyError(detailed))
+          continue;
         const hasAll = containsAllKeywords(detailed, keywordsNorm);
         if (hasAll) {
-          response.addResult(detailed);
+          response.addResult({ text: detailed });
           return;
         }
       } catch {
         const basic = renderRequest(req, res);
         const hasAll = containsAllKeywords(basic, keywordsNorm);
         if (hasAll) {
-          response.addResult(basic);
+          response.addResult({ text: basic });
           return;
         }
       }
@@ -188,6 +192,10 @@ function matchesStructuredFilters(
   }
 
   return true;
+}
+
+function hasBodyError(rendered: string): boolean {
+  return rendered.includes('[Error accessing body:');
 }
 
 function containsAllKeywords(haystack: string, keywordsNorm: string[]): boolean {
