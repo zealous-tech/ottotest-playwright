@@ -444,6 +444,38 @@ const validateDomAssertionsSchema = baseDomInputSchema.extend({
   checks: domAssertionChecksSchema,
 });
 
+const loopSchema = z.object({
+  type: z.enum(['for', 'while', 'do-while']).describe('Loop execution type'),
+  iterations: z.number().min(1).optional().describe('Number of times to repeat the action (for-loop only)'),
+  until: z
+      .object({
+        element: z.string().describe('Human-readable element description used for loop condition'),
+        ref: z.string().describe('Exact target element reference from the page snapshot'),
+        assertion: assertionArgumentsSchema.describe('Assertion that ends the loop when it passes'),
+        negate: z.boolean().optional().default(false).describe('If true, loop continues until the assertion becomes false'),
+      })
+      .optional()
+      .describe('Condition that stops the loop when satisfied'),
+});
+
+const repeatActionSchema = z.object({
+  loop: loopSchema,
+  action: z.object({
+    type: z.enum(['click', 'hover', 'press', 'fill']).describe('Action to repeat'),
+    element: z.string().describe('Human-readable element description'),
+    ref: z.string().describe('Exact target element reference from the page snapshot'),
+    value: z.string().optional().describe('Optional value for fill or press actions'),
+  }),
+  limits: z.object({
+    maxIterations: z
+        .number()
+        .min(1)
+        .max(100)
+        .default(20)
+        .describe('Maximum number of iterations to prevent infinite loops'),
+  }).optional(),
+});
+
 export {
   elementStyleSchema,
   elementImageSchema,
@@ -465,4 +497,5 @@ export {
   validateTabExistSchema,
   generateLocatorSchema,
   customWaitSchema,
+  repeatActionSchema,
 };

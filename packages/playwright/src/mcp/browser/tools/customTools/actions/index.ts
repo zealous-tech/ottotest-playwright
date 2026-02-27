@@ -22,3 +22,4 @@ export { generate_locator } from './generateLocator';
 export { get_computed_styles } from './getComputedStyles';
 export { make_request } from './makeRequest';
 export { wait } from './wait';
+export { repeat_action } from './repeatAction';
