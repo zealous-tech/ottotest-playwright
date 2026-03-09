@@ -454,6 +454,56 @@ async function checkElementVisibilityUnique(page: any, role: string, accessibleN
   return results;
 }
 
+async function checkLocatorVisibilityUnique(page: any, locator: string) {
+  const searchPromises = [];
+
+  const checkFrame = (frame: any, frameName: string, level: number) => {
+    try {
+      const resolvedLocator = resolveLocator(frame, locator);
+
+      return expect(resolvedLocator)
+          .toBeVisible({ timeout: 2000 })
+          .then(() => ({ found: true, frame: frameName, level }))
+          .catch(() => ({ found: false, frame: frameName, level }));
+
+    } catch {
+      return Promise.resolve({ found: false, frame: frameName, level });
+    }
+  };
+
+  // main frame
+  searchPromises.push(checkFrame(page, 'main', 0));
+
+  // collect all nested frames
+  const allFrames = await collectAllFrames(page, 0);
+
+  for (const frameInfo of allFrames) {
+    searchPromises.push(
+        checkFrame(frameInfo.frame, frameInfo.name, frameInfo.level)
+    );
+  }
+
+  // run checks in parallel
+  const results = await Promise.all(searchPromises);
+
+  return results;
+}
+
+function resolveLocator(frame: any, locator: string) {
+  const trimmed = locator.trim();
+  if (
+    trimmed.startsWith('getBy') ||
+    trimmed.startsWith('locator(')
+  ) {
+    try {
+      return eval(`frame.${trimmed}`);
+    } catch {
+      throw new Error(`Invalid locator expression: ${locator}`);
+    }
+  }
+  return frame.locator(locator);
+}
+
 /**
  * Check text visibility with parallel recursive search across all frames
  * Returns all search results without counting logic
@@ -934,6 +984,7 @@ export {
   compareValues,
   getValueByJsonPath,
   checkElementVisibilityUnique,
+  checkLocatorVisibilityUnique,
   checkTextExistenceInAllFrames,
   generateLocatorString,
   collectAllFrames,
