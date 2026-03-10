@@ -16,7 +16,7 @@
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { buildValidationErrorPayload, buildValidationPayload, createValidationEvidence, generateLocatorString, parseValidationResult } from '../helpers/helpers';
-import { ELEMENT_ATTACHED_TIMEOUT} from '../helpers/utils';
+import { getValidationTimeout } from '../helpers/utils';
 import { defaultValidationSchema } from '../helpers/schemas';
 
 export const default_validation = defineTabTool({
@@ -44,7 +44,7 @@ export const default_validation = defineTabTool({
 
         // Check if element is attached to DOM
         try {
-          await expect(locator).toBeAttached({ timeout: ELEMENT_ATTACHED_TIMEOUT });
+          await expect(locator).toBeAttached({ timeout: getValidationTimeout(tab.context) });
         } catch {
           const locatorString = await generateLocatorString(ref, locator, true);
           const errorMessage = `The UI Element "${element}" not found`;

@@ -19,6 +19,12 @@ import { CurlResponse } from '../common/common';
 // Global timeout for element attachment validation (in milliseconds)
 const ELEMENT_ATTACHED_TIMEOUT = 15000;
 
+// Get validation timeout from context config or use default
+// Note: validation timeout is a custom extension, not part of standard Playwright MCP config
+function getValidationTimeout(context?: any): number {
+  return (context?.config?.timeouts as any)?.validation ?? ELEMENT_ATTACHED_TIMEOUT;
+}
+
 const camelToKebab = (prop: string) =>
   prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`);
 
@@ -505,6 +511,7 @@ function normalizeValue(value: string): string {
 
 export {
   ELEMENT_ATTACHED_TIMEOUT,
+  getValidationTimeout,
   pickActualValue,
   parseRGBColor,
   isColorInRange,
