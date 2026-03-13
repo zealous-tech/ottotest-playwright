@@ -16,7 +16,7 @@
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString } from '../helpers/helpers';
-import { getValidationTimeout } from '../helpers/utils';
+import { getTimeout } from '../helpers/utils';
 import { validateElementOrderSchema } from '../helpers/schemas';
 
 export const validate_element_order = defineTabTool({
@@ -94,7 +94,7 @@ export const validate_element_order = defineTabTool({
         // Check if all elements are attached to DOM with timeout
         for (const { element, locator } of elementLocators) {
           try {
-            await expect(locator).toBeAttached({ timeout: getValidationTimeout(tab.context) });
+            await expect(locator).toBeAttached({ timeout: getTimeout(tab.context) });
           } catch (error) {
             // Element not found, generate payload and return early
             const payload = await generateElementNotFoundPayload(element);

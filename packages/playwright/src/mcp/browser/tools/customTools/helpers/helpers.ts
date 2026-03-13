@@ -425,13 +425,18 @@ function getValueByJsonPath(obj: any, path: string): any {
  * Check element visibility with parallel recursive search across all frames
  * Ensures exactly 1 element is found with the specified role and accessibleName
  */
-async function checkElementVisibilityUnique(page: any, role: string, accessibleName: string) {
+async function checkElementVisibilityUnique(
+  page: any,
+  role: string,
+  accessibleName: string,
+  timeout: number = ELEMENT_ATTACHED_TIMEOUT
+) {
 
   const searchPromises = [];
 
   // Add search in main frame
   searchPromises.push(
-      expect(page.getByRole(role, { name: accessibleName })).toBeVisible()
+      expect(page.getByRole(role, { name: accessibleName })).toBeVisible({ timeout })
           .then(() => ({ found: true, frame: 'main', level: 0 }))
           .catch(() => ({ found: false, frame: 'main', level: 0 }))
   );

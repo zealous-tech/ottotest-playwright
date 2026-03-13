@@ -16,7 +16,7 @@
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString, getAssertionEvidence } from '../helpers/helpers';
-import { getValidationTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue } from '../helpers/utils';
+import { getTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue } from '../helpers/utils';
 import { validateDomAssertionsSchema } from '../helpers/schemas';
 
 export const validate_dom_assertions = defineTabTool({
@@ -48,7 +48,7 @@ export const validate_dom_assertions = defineTabTool({
         const message: string = getAssertionMessage(name, element, negate);
         // Prepare final args - separate main arguments from options
         const { options, ...mainArgs } = convertedArgs;
-        const finalOptions = { ...options, timeout: getValidationTimeout(tab.context) };
+        const finalOptions = { ...options, timeout: getTimeout(tab.context) };
 
         const result = {
           assertion: name,
@@ -328,7 +328,7 @@ export const validate_dom_assertions = defineTabTool({
                 });
               };
 
-              const selectTimeout = finalOptions?.timeout || getValidationTimeout(tab.context);
+              const selectTimeout = finalOptions?.timeout || getTimeout(tab.context);
               const startTime = Date.now();
               let lastError: Error | null = null;
               let lastActualValue = '';
