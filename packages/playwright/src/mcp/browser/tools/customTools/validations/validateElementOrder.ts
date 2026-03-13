@@ -92,9 +92,11 @@ export const validate_element_order = defineTabTool({
         }
 
         // Check if all elements are attached to DOM with timeout
+        const timeout = getTimeout(tab.context);
+        
         for (const { element, locator } of elementLocators) {
           try {
-            await expect(locator).toBeAttached({ timeout: getTimeout(tab.context) });
+            await expect(locator).toBeAttached({ timeout });
           } catch (error) {
             // Element not found, generate payload and return early
             const payload = await generateElementNotFoundPayload(element);

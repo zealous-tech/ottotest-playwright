@@ -50,7 +50,6 @@ export const validate_computed_styles = defineTabTool({
 
       // Check if element is attached to DOM with timeout
       try {
-        console.error('computed styles timeout:', getTimeout(tab.context));
         await expect(locator).toBeAttached({ timeout: getTimeout(tab.context) });
       } catch (error) {
         // If element not found, generate payload with error and return early
