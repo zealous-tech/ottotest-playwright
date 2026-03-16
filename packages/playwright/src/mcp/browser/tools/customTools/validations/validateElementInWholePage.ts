@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 import { defineTabTool } from '../../tool';
-import { checkElementVisibilityUnique } from '../helpers/helpers';
+import { checkElementVisibilityUnique, checkLocatorVisibilityUnique } from '../helpers/helpers';
+import { getTimeout } from '../helpers/utils';
 import { validateElementInWholePageSchema } from '../helpers/schemas';
 
 export const validate_element_in_whole_page = defineTabTool({
@@ -27,17 +28,19 @@ export const validate_element_in_whole_page = defineTabTool({
     type: 'readOnly',
   },
   handle: async (tab, params, response) => {
-    const { element, role, accessibleName, matchType } = validateElementInWholePageSchema.parse(params);
+    const { element, role, accessibleName, locator, matchType } = validateElementInWholePageSchema.parse(params);
 
     await tab.waitForCompletion(async () => {
       // Get locator for whole page and generate locator string
-      const locatorString = 'page.locator("body")';
+      const locatorString = locator ?? 'page.locator("body")';
+      const locatorStrength = locator ? 'WEAK' : 'STRONG';
 
       // Helper function to create evidence command
       const createEvidenceCommand = () => JSON.stringify({
         description: 'Evidence showing how validation was performed',
         toolName: 'validate_element_in_whole_page',
         locator: locatorString,
+        locatorStrength,
         arguments: {
           role,
           accessibleName,
@@ -51,8 +54,12 @@ export const validate_element_in_whole_page = defineTabTool({
       let foundFrames: string[] = [];
 
       try {
-        // Use checkElementVisibilityUnique to search across all frames
-        const results = await checkElementVisibilityUnique(tab.page, role, accessibleName);
+        // Use checkElementVisibilityUnique or checkLocatorVisibilityUnique to search across all frames
+        let results;
+        if (locator)
+          results = await checkLocatorVisibilityUnique(tab.page, locator);
+        else
+          results = await checkElementVisibilityUnique(tab.page, role, accessibleName, getTimeout(tab.context));
 
         // Count found results
         const foundResults = results.filter(result => result.found);

@@ -25,7 +25,7 @@ import { z } from 'playwright-core/lib/mcpBundle';
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString } from '../helpers/helpers';
-import { ELEMENT_ATTACHED_TIMEOUT } from '../helpers/utils';
+import { getTimeout } from '../helpers/utils';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -713,7 +713,7 @@ export const validate_icon = defineTabTool({
 
         // Step 2: Verify element is attached to DOM
         try {
-          await expect(locator).toBeAttached({ timeout: ELEMENT_ATTACHED_TIMEOUT });
+          await expect(locator).toBeAttached({ timeout: getTimeout(tab.context) });
         } catch (error) {
           const locatorString = await generateLocatorString(ref, locator);
           await handleElementNotFound(ref, element, locatorString, expectedIcon, response);

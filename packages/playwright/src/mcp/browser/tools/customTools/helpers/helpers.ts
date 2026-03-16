@@ -425,13 +425,18 @@ function getValueByJsonPath(obj: any, path: string): any {
  * Check element visibility with parallel recursive search across all frames
  * Ensures exactly 1 element is found with the specified role and accessibleName
  */
-async function checkElementVisibilityUnique(page: any, role: string, accessibleName: string) {
+async function checkElementVisibilityUnique(
+  page: any,
+  role: string,
+  accessibleName: string,
+  timeout: number = ELEMENT_ATTACHED_TIMEOUT
+) {
 
   const searchPromises = [];
 
   // Add search in main frame
   searchPromises.push(
-      expect(page.getByRole(role, { name: accessibleName })).toBeVisible()
+      expect(page.getByRole(role, { name: accessibleName })).toBeVisible({ timeout })
           .then(() => ({ found: true, frame: 'main', level: 0 }))
           .catch(() => ({ found: false, frame: 'main', level: 0 }))
   );
@@ -452,6 +457,56 @@ async function checkElementVisibilityUnique(page: any, role: string, accessibleN
   const results = await Promise.all(searchPromises);
 
   return results;
+}
+
+async function checkLocatorVisibilityUnique(page: any, locator: string) {
+  const searchPromises = [];
+
+  const checkFrame = (frame: any, frameName: string, level: number) => {
+    try {
+      const resolvedLocator = resolveLocator(frame, locator);
+
+      return expect(resolvedLocator)
+          .toBeVisible({ timeout: 2000 })
+          .then(() => ({ found: true, frame: frameName, level }))
+          .catch(() => ({ found: false, frame: frameName, level }));
+
+    } catch {
+      return Promise.resolve({ found: false, frame: frameName, level });
+    }
+  };
+
+  // main frame
+  searchPromises.push(checkFrame(page, 'main', 0));
+
+  // collect all nested frames
+  const allFrames = await collectAllFrames(page, 0);
+
+  for (const frameInfo of allFrames) {
+    searchPromises.push(
+        checkFrame(frameInfo.frame, frameInfo.name, frameInfo.level)
+    );
+  }
+
+  // run checks in parallel
+  const results = await Promise.all(searchPromises);
+
+  return results;
+}
+
+function resolveLocator(frame: any, locator: string) {
+  const trimmed = locator.trim();
+  if (
+    trimmed.startsWith('getBy') ||
+    trimmed.startsWith('locator(')
+  ) {
+    try {
+      return eval(`frame.${trimmed}`);
+    } catch {
+      throw new Error(`Invalid locator expression: ${locator}`);
+    }
+  }
+  return frame.locator(locator);
 }
 
 /**
@@ -479,10 +534,16 @@ async function checkTextExistenceInAllFrames(
   const early = createEarlyResolve<FrameResult>();
   const allChecks: Promise<FrameResult>[] = [];
 
-  const createLocator = (ctx: any) =>
-    matchType === 'exact'
-      ? ctx.getByText(text, { exact: true })
-      : ctx.getByText(text);
+  const createLocator = (ctx: any) => {
+    let locatorText: string | RegExp = text;
+
+    if (matchType === 'contains' && text.startsWith('/') && text.endsWith('/i'))
+      locatorText = new RegExp(text.slice(1, -2), 'i'); // remove slashes and keep "i"
+
+    return matchType === 'exact'
+      ? ctx.getByText(locatorText, { exact: true })
+      : ctx.getByText(locatorText);
+  };
 
   const checkFrame = async (
     locator: any,
@@ -495,7 +556,19 @@ async function checkTextExistenceInAllFrames(
         return { found: false, count: 0, frame, level };
       }
 
-      await expect(locator.first()).toBeVisible({ timeout });
+      await expect
+          .poll(async () => {
+            // Get all elements currently matched by the locator
+            const elements = await locator.elementHandles();
+            for (const el of elements) {
+              if (await el.isVisible())
+                return true;
+            }
+
+            return false;
+          }, { timeout })
+          .toBe(true);
+
       const count = await locator.count();
 
       const result = { found: true, count, frame, level };
@@ -934,6 +1007,7 @@ export {
   compareValues,
   getValueByJsonPath,
   checkElementVisibilityUnique,
+  checkLocatorVisibilityUnique,
   checkTextExistenceInAllFrames,
   generateLocatorString,
   collectAllFrames,
