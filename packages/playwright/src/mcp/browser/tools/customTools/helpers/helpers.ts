@@ -425,13 +425,18 @@ function getValueByJsonPath(obj: any, path: string): any {
  * Check element visibility with parallel recursive search across all frames
  * Ensures exactly 1 element is found with the specified role and accessibleName
  */
-async function checkElementVisibilityUnique(page: any, role: string, accessibleName: string) {
+async function checkElementVisibilityUnique(
+  page: any,
+  role: string,
+  accessibleName: string,
+  timeout: number = ELEMENT_ATTACHED_TIMEOUT
+) {
 
   const searchPromises = [];
 
   // Add search in main frame
   searchPromises.push(
-      expect(page.getByRole(role, { name: accessibleName })).toBeVisible()
+      expect(page.getByRole(role, { name: accessibleName })).toBeVisible({ timeout })
           .then(() => ({ found: true, frame: 'main', level: 0 }))
           .catch(() => ({ found: false, frame: 'main', level: 0 }))
   );
@@ -529,10 +534,16 @@ async function checkTextExistenceInAllFrames(
   const early = createEarlyResolve<FrameResult>();
   const allChecks: Promise<FrameResult>[] = [];
 
-  const createLocator = (ctx: any) =>
-    matchType === 'exact'
-      ? ctx.getByText(text, { exact: true })
-      : ctx.getByText(text);
+  const createLocator = (ctx: any) => {
+    let locatorText: string | RegExp = text;
+
+    if (matchType === 'contains' && text.startsWith('/') && text.endsWith('/i'))
+      locatorText = new RegExp(text.slice(1, -2), 'i'); // remove slashes and keep "i"
+
+    return matchType === 'exact'
+      ? ctx.getByText(locatorText, { exact: true })
+      : ctx.getByText(locatorText);
+  };
 
   const checkFrame = async (
     locator: any,
@@ -545,7 +556,19 @@ async function checkTextExistenceInAllFrames(
         return { found: false, count: 0, frame, level };
       }
 
-      await expect(locator.first()).toBeVisible({ timeout });
+      await expect
+          .poll(async () => {
+            // Get all elements currently matched by the locator
+            const elements = await locator.elementHandles();
+            for (const el of elements) {
+              if (await el.isVisible())
+                return true;
+            }
+
+            return false;
+          }, { timeout })
+          .toBe(true);
+
       const count = await locator.count();
 
       const result = { found: true, count, frame, level };

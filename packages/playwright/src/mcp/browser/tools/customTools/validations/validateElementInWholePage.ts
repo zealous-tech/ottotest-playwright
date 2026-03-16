@@ -15,6 +15,7 @@
  */
 import { defineTabTool } from '../../tool';
 import { checkElementVisibilityUnique, checkLocatorVisibilityUnique } from '../helpers/helpers';
+import { getTimeout } from '../helpers/utils';
 import { validateElementInWholePageSchema } from '../helpers/schemas';
 
 export const validate_element_in_whole_page = defineTabTool({
@@ -58,7 +59,7 @@ export const validate_element_in_whole_page = defineTabTool({
         if (locator)
           results = await checkLocatorVisibilityUnique(tab.page, locator);
         else
-          results = await checkElementVisibilityUnique(tab.page, role, accessibleName);
+          results = await checkElementVisibilityUnique(tab.page, role, accessibleName, getTimeout(tab.context));
 
         // Count found results
         const foundResults = results.filter(result => result.found);
