@@ -46,9 +46,37 @@ export const data_extraction = defineTabTool({
       }
 
       try {
-        const normalizedPath = jsonPath.startsWith('$') ? jsonPath : `$.${jsonPath}`;
-        const queryResult = jp.query(parsedResponseData, normalizedPath);
-        extractedValue = queryResult.length === 0 ? null : queryResult.length === 1 ? queryResult[0] : queryResult;
+        const normalizedPath = jsonPath.startsWith('$')
+          ? jsonPath
+          : jsonPath.startsWith('[')
+            ? `$${jsonPath}`
+            : `$.${jsonPath}`;
+
+        if (normalizedPath.endsWith('.length')) {
+          const targetPath = normalizedPath.slice(0, -'.length'.length);
+          const targetResult = targetPath === '$'
+            ? [parsedResponseData]
+            : jp.query(parsedResponseData, targetPath);
+
+          const targetValue =
+            targetResult.length === 0 ? null
+            : targetResult.length === 1 ? targetResult[0]
+            : targetResult;
+
+          if (!Array.isArray(targetValue)) {
+            response.addTextResult(JSON.stringify({
+              success: false,
+              error: `Failed to extract length: path "${targetPath}" did not resolve to an array`,
+              extractedData: null
+            }, null, 2));
+            return;
+          }
+
+          extractedValue = targetValue.length;
+        } else {
+          const queryResult = jp.query(parsedResponseData, normalizedPath);
+          extractedValue = queryResult.length === 0 ? null : queryResult.length === 1 ? queryResult[0] : queryResult;
+        }
       } catch (error) {
         response.addTextResult(JSON.stringify({
           success: false,

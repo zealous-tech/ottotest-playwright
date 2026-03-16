@@ -294,7 +294,7 @@ const validateResponseSchema = z.object({
   responseData: z.string().describe('Response data as JSON string'),
   checks: z.array(z.object({
     name: z.string().describe('Name/description of the check for logging purposes'),
-    jsonPath: z.string().describe('JSONPath expression. Examples: $.store.book[0].title (specific element), $..author (recursive descent), $.store.book[*].author (wildcard), $.store.book[?(@.price<10)] (filter), $.store.book[(@.length-1)] (script). Use $ as root, dot notation or brackets for properties.'),
+    jsonPath: z.string().describe('JSONPath expression. Examples: $.store.book[0].title (specific element), $..author (recursive descent), $.store.book[*].author (wildcard), $.store.book[?(@.price<10)] (filter), $.store.book[(@.length-1)] (script). Use $ as root, dot notation or brackets for properties. If the path ends with .length and if the value at the path is an array, the validated value will be that array\'s length.'),
     expected: z.any().optional().describe('Expected value for comparison'),
     operator: z.enum(['equals', 'not_equals', 'greater_than', 'less_than', 'hasValue']).optional().default('equals').describe('Comparison operator. hasValue checks if value exists at jsonPath (expected should be true/false)')
   })).min(1).describe('Array of validation checks to perform'),
@@ -336,7 +336,7 @@ const validateElementInWholePageSchema = z.object({
 const dataExtractionSchema = z.object({
   name: z.string().describe('Variable name (will be prefixed with $$)'),
   data: z.string().describe('Data to extract from. If jsonPath is provided, should be JSON string. If jsonPath is not provided, can be any string data'),
-  jsonPath: z.string().optional().describe('JSONPath expression. Examples: $.store.book[0].title (specific element), $..author (recursive descent), $.store.book[*].author (wildcard), $.store.book[?(@.price<10)] (filter), $.store.book[(@.length-1)] (script). Use $ as root, dot notation or brackets for properties.'),
+  jsonPath: z.string().optional().describe('JSONPath expression. Examples: $.store.book[0].title (specific element), $..author (recursive descent), $.store.book[*].author (wildcard), $.store.book[?(@.price<10)] (filter), $.store.book[(@.length-1)] (script). Use $ as root, dot notation or brackets for properties. If the path ends with .length and if the value at the path is an array, the extracted value will be that array\'s length.'),
 });
 
 const waitSchema = z.object({
