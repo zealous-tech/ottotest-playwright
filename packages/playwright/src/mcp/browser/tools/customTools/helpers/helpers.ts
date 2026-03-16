@@ -484,10 +484,16 @@ async function checkTextExistenceInAllFrames(
   const early = createEarlyResolve<FrameResult>();
   const allChecks: Promise<FrameResult>[] = [];
 
-  const createLocator = (ctx: any) =>
-    matchType === 'exact'
-      ? ctx.getByText(text, { exact: true })
-      : ctx.getByText(text);
+  const createLocator = (ctx: any) => {
+    let locatorText: string | RegExp = text;
+
+    if (matchType === 'contains' && text.startsWith('/') && text.endsWith('/i'))
+      locatorText = new RegExp(text.slice(1, -2), 'i'); // remove slashes and keep "i"
+
+    return matchType === 'exact'
+      ? ctx.getByText(locatorText, { exact: true })
+      : ctx.getByText(locatorText);
+  };
 
   const checkFrame = async (
     locator: any,
