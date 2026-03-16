@@ -500,7 +500,19 @@ async function checkTextExistenceInAllFrames(
         return { found: false, count: 0, frame, level };
       }
 
-      await expect(locator.first()).toBeVisible({ timeout });
+      await expect
+          .poll(async () => {
+            // Get all elements currently matched by the locator
+            const elements = await locator.elementHandles();
+            for (const el of elements) {
+              if (await el.isVisible())
+                return true;
+            }
+
+            return false;
+          }, { timeout })
+          .toBe(true);
+
       const count = await locator.count();
 
       const result = { found: true, count, frame, level };
