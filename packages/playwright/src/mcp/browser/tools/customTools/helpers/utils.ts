@@ -167,10 +167,6 @@ function compareValues(actual: any, expected: any, operator: string) {
 /** Safe .toString() for values that might be undefined or throw. */
 function safeToString(value: unknown): string {
   try {
-    if (value === undefined)
-      return 'undefined';
-    if (value === null)
-      return 'null';
     if (typeof (value as { toString?: () => string }).toString === 'function')
       return (value as { toString: () => string }).toString();
     return String(value);
