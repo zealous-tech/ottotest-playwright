@@ -171,6 +171,40 @@ function compareValues(actual: any, expected: any, operator: string) {
   }
 }
 
+/** Safe .toString() for values that might be undefined or throw. */
+function safeToString(value: unknown): string {
+  try {
+    if (typeof (value as { toString?: () => string }).toString === 'function')
+      return (value as { toString: () => string }).toString();
+    return String(value);
+  } catch {
+    return '[serialization error]';
+  }
+}
+
+/** Deep-serialize value or object for evidence/payload. Converts RegExp to string, undefined/null to null. Use for single values or nested objects. */
+function serializeForEvidence(obj: unknown): unknown {
+  try {
+    if (obj === undefined || obj === null)
+      return null;
+    if (obj instanceof RegExp)
+      return safeToString(obj);
+    if (Array.isArray(obj))
+      return obj.map(serializeForEvidence);
+    if (typeof obj === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        const serialized = serializeForEvidence(v);
+        out[k] = serialized === undefined ? null : serialized;
+      }
+      return out;
+    }
+    return obj;
+  } catch {
+    return null;
+  }
+}
+
 function convertToValidJson(str: string): string {
   // Simple approach: replace single quotes with double quotes
   // This works for most cases but may not handle all edge cases
@@ -517,6 +551,8 @@ export {
   parseRGBColor,
   isColorInRange,
   compareValues,
+  safeToString,
+  serializeForEvidence,
   convertToValidJson,
   applyArrayFilter,
   parseCurlStderr,

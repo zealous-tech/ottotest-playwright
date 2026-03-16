@@ -16,7 +16,7 @@
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString, getAssertionEvidence } from '../helpers/helpers';
-import { getTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue } from '../helpers/utils';
+import { getTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue, serializeForEvidence } from '../helpers/utils';
 import { validateDomAssertionsSchema } from '../helpers/schemas';
 
 export const validate_dom_assertions = defineTabTool({
@@ -65,8 +65,8 @@ export const validate_dom_assertions = defineTabTool({
           description: 'Evidence showing how validation was performed',
           assertion: name,
           locator: locatorStr,
-          arguments: Object.keys(mainArgs).length > 1 ? mainArgs : {},
-          options: Object.keys(finalOptions).length > 0 ? finalOptions : {}
+          arguments: Object.keys(mainArgs).length > 1 ? serializeForEvidence(mainArgs) as object : {},
+          options: Object.keys(finalOptions).length > 0 ? serializeForEvidence(finalOptions) as object : {}
         });
         try {
           // Create the assertion with message
@@ -221,8 +221,8 @@ export const validate_dom_assertions = defineTabTool({
                 description: 'Evidence showing how validation was performed',
                 assertion: name,
                 locator: locatorString,
-                arguments: Object.keys(mainArgs).length > 1 ? mainArgs : {},
-                options: Object.keys(attributeOptions).length > 0 ? attributeOptions : {}
+                arguments: Object.keys(mainArgs).length > 1 ? serializeForEvidence(mainArgs) as object : {},
+                options: Object.keys(attributeOptions).length > 0 ? serializeForEvidence(attributeOptions) as object : {}
               });
               break;
 
