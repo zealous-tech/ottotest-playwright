@@ -15,6 +15,7 @@
  */
 import { defineTabTool } from '../../tool';
 import { checkTextExistenceInAllFrames } from '../helpers/helpers';
+import { getTimeout } from '../helpers/utils';
 import { validateTextInWholePageSchema } from '../helpers/schemas';
 
 export const validate_text_in_whole_page = defineTabTool({
@@ -51,7 +52,7 @@ export const validate_text_in_whole_page = defineTabTool({
 
       try {
         // Use checkTextExistenceInAllFrames to search across all frames
-        const results = await checkTextExistenceInAllFrames(tab.page, expectedText, matchType);
+        const results = await checkTextExistenceInAllFrames(tab.page, expectedText, matchType, getTimeout(tab.context));
 
         // Count found results
         const foundResults = results.filter(r => r.found);

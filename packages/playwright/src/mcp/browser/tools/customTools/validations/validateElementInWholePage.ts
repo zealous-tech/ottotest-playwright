@@ -15,6 +15,7 @@
  */
 import { defineTabTool } from '../../tool';
 import { checkElementVisibilityUnique } from '../helpers/helpers';
+import { getTimeout } from '../helpers/utils';
 import { validateElementInWholePageSchema } from '../helpers/schemas';
 
 export const validate_element_in_whole_page = defineTabTool({
@@ -52,7 +53,7 @@ export const validate_element_in_whole_page = defineTabTool({
 
       try {
         // Use checkElementVisibilityUnique to search across all frames
-        const results = await checkElementVisibilityUnique(tab.page, role, accessibleName);
+        const results = await checkElementVisibilityUnique(tab.page, role, accessibleName, getTimeout(tab.context));
 
         // Count found results
         const foundResults = results.filter(result => result.found);
