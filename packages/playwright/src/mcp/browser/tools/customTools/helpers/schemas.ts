@@ -328,6 +328,9 @@ const validateElementInWholePageSchema = z.object({
   accessibleName: z.string().describe(
       'Accessible name of the element to search for'
   ),
+  locator: z.string().optional().describe(
+      'Optional Playwright locator string. If provided, role and accessibleName are ignored. This locator will be treated as WEAK evidence.'
+  ),
   matchType: z.enum(['exist', 'not-exist']).default('exist').describe(
       "Type of match: 'exist' checks that element exists exactly once, 'not-exist' checks that element does not exist anywhere"
   ),
