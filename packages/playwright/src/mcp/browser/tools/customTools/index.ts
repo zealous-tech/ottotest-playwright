@@ -37,6 +37,7 @@ import {
   wait,
   dynamic_switch,
   custom_wait,
+  repeat_action,
 } from './actions';
 
 export default [
@@ -60,5 +61,6 @@ export default [
   data_extraction,
   wait,
   dynamic_switch,
+  repeat_action,
   custom_wait
 ];
