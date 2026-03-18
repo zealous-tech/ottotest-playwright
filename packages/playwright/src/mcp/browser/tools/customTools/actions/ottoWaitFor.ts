@@ -16,10 +16,10 @@
 import { defineTool } from '../../tool';
 import { customWaitSchema } from '../helpers/schemas';
 
-export const custom_wait = defineTool({
+export const otto_wait_for = defineTool({
   capability: 'core',
   schema: {
-    name: 'browser_wait_for_text',
+    name: 'otto_browser_wait_for',
     title: 'Wait for',
     description: 'Wait for text to appear or disappear with optional maximum timeout',
     inputSchema: customWaitSchema,
@@ -28,7 +28,6 @@ export const custom_wait = defineTool({
   handle: async (context, params, response) => {
     if (!params.text && !params.textGone && !params.time)
       throw new Error('Either time, text or textGone must be provided');
-
     const tab = context.currentTabOrDie();
     const actionTimeout = params.time ? params.time * 1000 : context.config.timeouts.action;
 
