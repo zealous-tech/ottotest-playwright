@@ -28,6 +28,7 @@ import {
   validate_icon,
 } from './validations';
 import {
+  otto_click,
   get_computed_styles,
   extract_svg_from_element,
   extract_image_urls,
@@ -60,5 +61,6 @@ export default [
   data_extraction,
   wait,
   dynamic_switch,
-  custom_wait
+  custom_wait,
+  otto_click,
 ];
