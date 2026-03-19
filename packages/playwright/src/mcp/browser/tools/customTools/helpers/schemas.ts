@@ -332,7 +332,7 @@ const validateElementInWholePageSchema = z.object({
       'Optional Playwright locator string. If provided, role and accessibleName are ignored. This locator will be treated as WEAK evidence.'
   ),
   matchType: z.enum(['exist', 'not-exist']).default('exist').describe(
-      "Type of match: 'exist' checks that element exists exactly once, 'not-exist' checks that element does not exist anywhere"
+      "Type of match: 'exist' checks that the element exists at least once (main page or any iframe); 'not-exist' checks that it does not appear in any frame"
   ),
 });
 
