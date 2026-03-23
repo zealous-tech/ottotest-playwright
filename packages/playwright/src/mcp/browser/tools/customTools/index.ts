@@ -28,7 +28,6 @@ import {
   validate_icon,
 } from './validations';
 import {
-  otto_click,
   get_computed_styles,
   extract_svg_from_element,
   extract_image_urls,
@@ -43,7 +42,6 @@ import {
 } from './actions';
 
 export default [
-  otto_click,
   otto_requests,
   get_computed_styles,
   extract_svg_from_element,
