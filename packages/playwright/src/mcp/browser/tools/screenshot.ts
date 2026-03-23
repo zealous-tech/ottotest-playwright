@@ -71,7 +71,6 @@ const screenshot = defineTabTool({
 
     await response.addResult({ data, title: `Screenshot of ${screenshotTarget}`, suggestedFilename: fileName });
 
-    // @ZEALOUS UPDATE - always add image to response (removed conditional that prevented large images)
     response.addImage({
       contentType: fileType === 'png' ? 'image/png' : 'image/jpeg',
       data: scaleImageToFitMessage(data, fileType)
