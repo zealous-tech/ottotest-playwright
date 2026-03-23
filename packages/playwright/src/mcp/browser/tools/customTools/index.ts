@@ -42,7 +42,6 @@ import {
 } from './actions';
 
 export default [
-  otto_click,
   otto_requests,
   get_computed_styles,
   extract_svg_from_element,
@@ -64,5 +63,6 @@ export default [
   data_extraction,
   wait,
   dynamic_switch,
-  otto_wait_for
+  otto_click,
+  otto_wait_for,
 ];

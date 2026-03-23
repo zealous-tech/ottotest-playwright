@@ -402,6 +402,14 @@ const customWaitSchema = z.object({
   textGone: z.string().optional().describe('The text to wait for to disappear'),
 });
 
+const ottoClickSchema = z.object({
+  element: z.string().optional().describe('Human-readable element description used to obtain permission to interact with the element'),
+  ref: z.string().describe('Exact target element reference from the page snapshot'),
+  doubleClick: z.boolean().optional().describe('Whether to perform a double click instead of a single click'),
+  button: z.enum(['left', 'right', 'middle']).optional().describe('Button to click, defaults to left'),
+  modifiers: z.array(z.enum(['Alt', 'Control', 'ControlOrMeta', 'Meta', 'Shift'])).optional().describe('Modifier keys to press'),
+});
+
 // Union schema for all assertion arguments
 const assertionArgumentsSchema = z.discriminatedUnion('assertionType', [
   z.object({ assertionType: z.literal('toBeAttached'), ...toBeAttachedArgsSchema.shape }),
@@ -468,4 +476,5 @@ export {
   validateTabExistSchema,
   generateLocatorSchema,
   customWaitSchema,
+  ottoClickSchema,
 };
