@@ -8,7 +8,7 @@ const ottoClickSchema = elementSchema.extend({
     button: z.enum(['left', 'right', 'middle']).optional().describe('Button to click, defaults to left'),
     modifiers: z.array(z.enum(['Alt', 'Control', 'ControlOrMeta', 'Meta', 'Shift'])).optional().describe('Modifier keys to press'),
 });
-//@ZEALOUS UPDATE
+
 export const otto_click = defineTabTool({
     capability: 'core',
     schema: {
