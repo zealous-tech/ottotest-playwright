@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export { custom_wait } from './customWait';
+export { otto_wait_for } from './ottoWaitFor';
 export { data_extraction } from './dataExtraction';
 export { dynamic_switch } from './dynamicSwitch';
 export { extract_image_urls } from './extractImageUrls';
@@ -23,3 +23,4 @@ export { get_computed_styles } from './getComputedStyles';
 export { make_request } from './makeRequest';
 export { wait } from './wait';
 export { otto_click } from './ottoClick';
+export { otto_requests } from './ottoNetwork';

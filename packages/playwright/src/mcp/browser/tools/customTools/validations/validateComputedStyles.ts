@@ -16,7 +16,7 @@
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { getAllComputedStylesDirect, generateLocatorString } from '../helpers/helpers';
-import { ELEMENT_ATTACHED_TIMEOUT, pickActualValue, parseRGBColor, isColorInRange } from '../helpers/utils';
+import { getTimeout, pickActualValue, parseRGBColor, isColorInRange } from '../helpers/utils';
 import { validateStylesSchema } from '../helpers/schemas';
 
 export const validate_computed_styles = defineTabTool({
@@ -50,7 +50,7 @@ export const validate_computed_styles = defineTabTool({
 
       // Check if element is attached to DOM with timeout
       try {
-        await expect(locator).toBeAttached({ timeout: ELEMENT_ATTACHED_TIMEOUT });
+        await expect(locator).toBeAttached({ timeout: getTimeout(tab.context) });
       } catch (error) {
         // If element not found, generate payload with error and return early
         // Generate locator string for evidence (even if element not found, try to get locator string)

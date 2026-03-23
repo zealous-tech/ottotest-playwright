@@ -78,7 +78,12 @@ export const validate_response = defineTabTool({
     // Perform all checks
     const results = checks.map(check => {
       try {
-        const normalizedPath = check.jsonPath.startsWith('$') ? check.jsonPath : `$.${check.jsonPath}`;
+        const normalizedPath = check.jsonPath.startsWith('$')
+          ? check.jsonPath
+          : check.jsonPath.startsWith('[')
+            ? `$${check.jsonPath}`
+            : `$.${check.jsonPath}`;
+
         let actualValue: unknown;
         if (isPrimitive) {
           // Primitive root: $ or $. returns the value itself
@@ -86,6 +91,29 @@ export const validate_response = defineTabTool({
             normalizedPath === '$' || normalizedPath === '$.'
               ? parsedResponseData
               : undefined;
+        } else if (normalizedPath.endsWith('.length')) {
+          // Resolve path without .length, then use array length
+          const targetPath = normalizedPath.slice(0, -'.length'.length);
+          const targetResult = targetPath === '$'
+            ? [parsedResponseData]
+            : jp.query(parsedResponseData, targetPath);
+
+          const targetValue =
+            targetResult.length === 0 ? null
+            : targetResult.length === 1 ? targetResult[0]
+            : targetResult;
+
+          if (!Array.isArray(targetValue)) {
+            return {
+              name: check.name,
+              jsonPath: check.jsonPath,
+              expected: check.expected,
+              operator: check.operator,
+              actual: `ERROR: path "${targetPath}" did not resolve to an array`,
+              result: 'fail',
+            };
+          }
+          actualValue = targetValue.length;
         } else {
           const queryResult = jp.query(parsedResponseData, normalizedPath);
           actualValue = queryResult.length === 1 ? queryResult[0] : queryResult;

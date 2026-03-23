@@ -421,37 +421,123 @@ function getValueByJsonPath(obj: any, path: string): any {
   return currentObj;
 }
 
+type ElementFrameResult = {
+  found: boolean;
+  frame: string;
+  level: number;
+};
+
+type ElementMatchType = 'exist' | 'not-exist';
+
 /**
- * Check element visibility with parallel recursive search across all frames
- * Ensures exactly 1 element is found with the specified role and accessibleName
+ * Check element visibility (by role + accessible name) across all frames.
+ * - 'exist'     → early exit: returns as soon as the first visible match is found in any frame.
+ * - 'not-exist' → full scan: waits for every frame to finish so absence is confirmed everywhere.
  */
-async function checkElementVisibilityUnique(page: any, role: string, accessibleName: string) {
+async function checkElementVisibilityInAllFrames(
+  page: any,
+  role: string,
+  accessibleName: string,
+  matchType: ElementMatchType = 'exist',
+  timeout: number = ELEMENT_ATTACHED_TIMEOUT
+): Promise<ElementFrameResult[]> {
+  const early = createEarlyResolve<ElementFrameResult>();
+  const allChecks: Promise<ElementFrameResult>[] = [];
 
-  const searchPromises = [];
+  const checkFrame = async (ctx: any, frameName: string, level: number): Promise<ElementFrameResult> => {
+    const loc = ctx.getByRole(role, { name: accessibleName });
+    try {
+      await expect(loc).toBeVisible({ timeout });
+      const result: ElementFrameResult = { found: true, frame: frameName, level };
+      early.resolve(result);
+      return result;
+    } catch {
+      return { found: false, frame: frameName, level };
+    }
+  };
 
-  // Add search in main frame
-  searchPromises.push(
-      expect(page.getByRole(role, { name: accessibleName })).toBeVisible()
-          .then(() => ({ found: true, frame: 'main', level: 0 }))
-          .catch(() => ({ found: false, frame: 'main', level: 0 }))
-  );
+  allChecks.push(checkFrame(page, 'main', 0));
 
-  // Recursively collect all iframes at all levels
   const allFrames = await collectAllFrames(page, 0);
+  for (const frameInfo of allFrames)
+    allChecks.push(checkFrame(frameInfo.frame, frameInfo.name, frameInfo.level));
 
-  // Create promises for all frames
-  for (const frameInfo of allFrames) {
-    searchPromises.push(
-        expect(frameInfo.frame.getByRole(role, { name: accessibleName })).toBeVisible({ timeout: 2000 })
-            .then(() => ({ found: true, frame: frameInfo.name, level: frameInfo.level }))
-            .catch(() => ({ found: false, frame: frameInfo.name, level: frameInfo.level }))
-    );
+  // ---- Early exit for 'exist' ----
+  if (matchType === 'exist') {
+    const winner = await Promise.race([
+      early.promise,
+      Promise.all(allChecks).then(() => null),
+    ]);
+
+    if (winner)
+      return [winner];
   }
 
-  // Wait for all search results in parallel
-  const results = await Promise.all(searchPromises);
+  return Promise.all(allChecks);
+}
 
-  return results;
+/**
+ * Check element visibility (by Playwright locator string) across all frames.
+ * - 'exist'     → early exit: returns as soon as the first visible match is found in any frame.
+ * - 'not-exist' → full scan: waits for every frame to finish so absence is confirmed everywhere.
+ */
+async function checkLocatorVisibilityInAllFrames(
+  page: any,
+  locator: string,
+  matchType: ElementMatchType = 'exist',
+  timeout: number = ELEMENT_ATTACHED_TIMEOUT
+): Promise<ElementFrameResult[]> {
+  const early = createEarlyResolve<ElementFrameResult>();
+  const allChecks: Promise<ElementFrameResult>[] = [];
+
+  const checkFrame = async (frame: any, frameName: string, level: number): Promise<ElementFrameResult> => {
+    try {
+      const resolvedLocator = resolveLocator(frame, locator);
+      try {
+        await expect(resolvedLocator).toBeVisible({ timeout });
+        const result: ElementFrameResult = { found: true, frame: frameName, level };
+        early.resolve(result);
+        return result;
+      } catch {
+        return { found: false, frame: frameName, level };
+      }
+    } catch {
+      return { found: false, frame: frameName, level };
+    }
+  };
+
+  allChecks.push(checkFrame(page, 'main', 0));
+
+  const allFrames = await collectAllFrames(page, 0);
+  for (const frameInfo of allFrames)
+    allChecks.push(checkFrame(frameInfo.frame, frameInfo.name, frameInfo.level));
+
+  if (matchType === 'exist') {
+    const winner = await Promise.race([
+      early.promise,
+      Promise.all(allChecks).then(() => null),
+    ]);
+
+    if (winner)
+      return [winner];
+  }
+
+  return Promise.all(allChecks);
+}
+
+function resolveLocator(frame: any, locator: string) {
+  const trimmed = locator.trim();
+  if (
+    trimmed.startsWith('getBy') ||
+    trimmed.startsWith('locator(')
+  ) {
+    try {
+      return eval(`frame.${trimmed}`);
+    } catch {
+      throw new Error(`Invalid locator expression: ${locator}`);
+    }
+  }
+  return frame.locator(locator);
 }
 
 /**
@@ -479,10 +565,16 @@ async function checkTextExistenceInAllFrames(
   const early = createEarlyResolve<FrameResult>();
   const allChecks: Promise<FrameResult>[] = [];
 
-  const createLocator = (ctx: any) =>
-    matchType === 'exact'
-      ? ctx.getByText(text, { exact: true })
-      : ctx.getByText(text);
+  const createLocator = (ctx: any) => {
+    let locatorText: string | RegExp = text;
+
+    if (matchType === 'contains' && text.startsWith('/') && text.endsWith('/i'))
+      locatorText = new RegExp(text.slice(1, -2), 'i'); // remove slashes and keep "i"
+
+    return matchType === 'exact'
+      ? ctx.getByText(locatorText, { exact: true })
+      : ctx.getByText(locatorText);
+  };
 
   const checkFrame = async (
     locator: any,
@@ -495,7 +587,19 @@ async function checkTextExistenceInAllFrames(
         return { found: false, count: 0, frame, level };
       }
 
-      await expect(locator.first()).toBeVisible({ timeout });
+      await expect
+          .poll(async () => {
+            // Get all elements currently matched by the locator
+            const elements = await locator.elementHandles();
+            for (const el of elements) {
+              if (await el.isVisible())
+                return true;
+            }
+
+            return false;
+          }, { timeout })
+          .toBe(true);
+
       const count = await locator.count();
 
       const result = { found: true, count, frame, level };
@@ -933,7 +1037,8 @@ export {
   performRegexMatch,
   compareValues,
   getValueByJsonPath,
-  checkElementVisibilityUnique,
+  checkElementVisibilityInAllFrames,
+  checkLocatorVisibilityInAllFrames,
   checkTextExistenceInAllFrames,
   generateLocatorString,
   collectAllFrames,

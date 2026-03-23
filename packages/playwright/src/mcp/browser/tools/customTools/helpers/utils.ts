@@ -15,9 +15,16 @@
  */
 /* eslint-disable eqeqeq */
 import { CurlResponse } from '../common/common';
+import type { Context } from '../../../context';
 
 // Global timeout for element attachment validation (in milliseconds)
 const ELEMENT_ATTACHED_TIMEOUT = 15000;
+
+// Get validation timeout from context config or use default
+// Note: validation timeout is a custom extension, not part of standard Playwright MCP config
+function getTimeout(context?: Context): number {
+  return context?.config?.timeouts?.action ?? ELEMENT_ATTACHED_TIMEOUT;
+}
 
 const camelToKebab = (prop: string) =>
   prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`);
@@ -161,6 +168,40 @@ function compareValues(actual: any, expected: any, operator: string) {
       return { passed: hasValue === expected, actual: hasValue };
     default:
       return { passed: false, actual: `Unknown operator: ${operator}` };
+  }
+}
+
+/** Safe .toString() for values that might be undefined or throw. */
+function safeToString(value: unknown): string {
+  try {
+    if (typeof (value as { toString?: () => string }).toString === 'function')
+      return (value as { toString: () => string }).toString();
+    return String(value);
+  } catch {
+    return '[serialization error]';
+  }
+}
+
+/** Deep-serialize value or object for evidence/payload. Converts RegExp to string, undefined/null to null. Use for single values or nested objects. */
+function serializeForEvidence(obj: unknown): unknown {
+  try {
+    if (obj === undefined || obj === null)
+      return null;
+    if (obj instanceof RegExp)
+      return safeToString(obj);
+    if (Array.isArray(obj))
+      return obj.map(serializeForEvidence);
+    if (typeof obj === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        const serialized = serializeForEvidence(v);
+        out[k] = serialized === undefined ? null : serialized;
+      }
+      return out;
+    }
+    return obj;
+  } catch {
+    return null;
   }
 }
 
@@ -505,10 +546,13 @@ function normalizeValue(value: string): string {
 
 export {
   ELEMENT_ATTACHED_TIMEOUT,
+  getTimeout,
   pickActualValue,
   parseRGBColor,
   isColorInRange,
   compareValues,
+  safeToString,
+  serializeForEvidence,
   convertToValidJson,
   applyArrayFilter,
   parseCurlStderr,
