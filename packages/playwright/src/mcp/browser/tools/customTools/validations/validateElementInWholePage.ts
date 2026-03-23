@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 import { defineTabTool } from '../../tool';
-import { checkElementVisibilityUnique, checkLocatorVisibilityUnique } from '../helpers/helpers';
+import {
+  checkElementVisibilityInAllFrames,
+  checkLocatorVisibilityInAllFrames,
+} from '../helpers/helpers';
 import { getTimeout } from '../helpers/utils';
 import { validateElementInWholePageSchema } from '../helpers/schemas';
 
@@ -23,7 +26,7 @@ export const validate_element_in_whole_page = defineTabTool({
   schema: {
     name: 'validate_element_in_whole_page',
     title: 'Validate element in whole page',
-    description: 'Validate that element with specific role and accessible name exists or does not exist anywhere on the page. Use matchType "exist" to verify element exists exactly once, or "not-exist" to verify element does not exist.',
+    description: 'Validate that element with specific role and accessible name exists or does not exist anywhere on the page. Use matchType "exist" to verify the element exists at least once (search stops on first match); use "not-exist" to verify it appears in no frame.',
     inputSchema: validateElementInWholePageSchema,
     type: 'readOnly',
   },
@@ -41,51 +44,39 @@ export const validate_element_in_whole_page = defineTabTool({
         toolName: 'validate_element_in_whole_page',
         locator: locatorString,
         locatorStrength,
-        arguments: {
+        args: {
           role,
           accessibleName,
-          matchType
-        }
+          matchType,
+          ...(locator ? { locator } : {}),
+        },
       });
 
       let passed = false;
       let evidenceMessage = '';
-      let actualCount = 0;
-      let foundFrames: string[] = [];
+      let found = false;
+
+      const timeout = getTimeout(tab.context);
 
       try {
-        // Use checkElementVisibilityUnique or checkLocatorVisibilityUnique to search across all frames
-        let results;
-        if (locator)
-          results = await checkLocatorVisibilityUnique(tab.page, locator);
-        else
-          results = await checkElementVisibilityUnique(tab.page, role, accessibleName, getTimeout(tab.context));
+        // early exit on first match for positive checks;
+        // full scan for not-exist across all frames.
+        const results = locator
+          ? await checkLocatorVisibilityInAllFrames(tab.page, locator, matchType, timeout)
+          : await checkElementVisibilityInAllFrames(tab.page, role, accessibleName, matchType, timeout);
 
-        // Count found results
-        const foundResults = results.filter(result => result.found);
-        actualCount = foundResults.length;
-        foundFrames = foundResults.map(result => result.frame);
+        found = results.some(r => r.found);
 
-        // Determine if test passes based on matchType
-        if (matchType === 'exist') {
-          if (actualCount === 1) {
-            passed = true;
-            evidenceMessage = `The element "${element}" was found once on the page using ${matchType} matching in frame: ${foundFrames[0]}.`;
-          } else if (actualCount > 1) {
-            passed = false;
-            evidenceMessage = `The element "${element}" appeared ${actualCount} times on the page using ${matchType} matching in frames: ${foundFrames.join(', ')}. Expected only one occurrence.`;
-          } else {
-            passed = false;
-            evidenceMessage = `The element "${element}" was not found on the page using ${matchType} matching.`;
-          }
-        } else { // not-exist
-          if (actualCount === 0) {
-            passed = true;
-            evidenceMessage = `The element "${element}" was correctly not found on the page using ${matchType} matching.`;
-          } else {
-            passed = false;
-            evidenceMessage = `The element "${element}" was found ${actualCount} time(s) on the page using ${matchType} matching in frames: ${foundFrames.join(', ')} — it should not appear.`;
-          }
+        passed = matchType === 'exist' ? found : !found;
+
+        if (passed) {
+          evidenceMessage = matchType === 'exist'
+            ? `The element "${element}" was found on the page.`
+            : `The element "${element}" was correctly not found on the page.`;
+        } else {
+          evidenceMessage = matchType === 'exist'
+            ? `The element "${element}" was not found on the page.`
+            : `The element "${element}" was found on the page — it should not appear.`;
         }
 
       } catch (error) {
@@ -118,14 +109,12 @@ export const validate_element_in_whole_page = defineTabTool({
         checks: [{
           property: 'element-presence',
           operator: matchType,
-          expected: matchType === 'not-exist' ? 'not-present' : 'present-once',
-          actual: actualCount > 0 ? `present-${actualCount}-times` : 'not-present',
-          actualCount: actualCount,
-          foundFrames: foundFrames,
+          expected: matchType === 'not-exist' ? 'not-present' : 'present',
+          actual: found ? 'present' : 'not-present',
           result: passed ? 'pass' : 'fail',
         }],
         scope: 'whole-page-all-frames',
-        searchMethod: 'checkElementVisibilityUnique',
+        searchMethod: locator ? 'checkLocatorVisibilityInAllFrames' : 'checkElementVisibilityInAllFrames',
       };
 
       console.log('Validate element in whole page:', payload);

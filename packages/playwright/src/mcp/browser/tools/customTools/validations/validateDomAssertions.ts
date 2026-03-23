@@ -64,6 +64,7 @@ export const validate_dom_assertions = defineTabTool({
         const createEvidenceCommand = (locatorStr: string) => JSON.stringify({
           description: 'Evidence showing how validation was performed',
           assertion: name,
+          negate,
           locator: locatorStr,
           arguments: Object.keys(mainArgs).length > 1 ? serializeForEvidence(mainArgs) as object : {},
           options: Object.keys(finalOptions).length > 0 ? serializeForEvidence(finalOptions) as object : {}
