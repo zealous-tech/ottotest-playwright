@@ -250,7 +250,27 @@ export const validate_dom_assertions = defineTabTool({
               if (!containExpected)
                 throw new Error('toContainText requires "expected" argument (string, RegExp, or Array<string | RegExp>)');
 
-              assertionResult = await assertion.toContainText(containExpected, finalOptions);
+              try {
+                assertionResult = await assertion.toContainText(containExpected, finalOptions);
+              } catch (textError) {
+                // toContainText always sees "" for <input>/<textarea> — fall back to .inputValue()
+                const tagName = await locator.evaluate((el: Element) => el.tagName.toLowerCase());
+                if (tagName === 'input' || tagName === 'textarea') {
+                  const inputVal = await locator.inputValue();
+                  const expected = Array.isArray(containExpected) ? containExpected : [containExpected];
+                  for (const exp of expected) {
+                    const expStr = typeof exp === 'string' ? exp : String(exp);
+                    const matches = inputVal.includes(expStr);
+                    if (negate && matches)
+                      throw new Error(`Expected input value "${inputVal}" to not contain "${expStr}"`);
+                    if (!negate && !matches)
+                      throw new Error(`Expected input value "${inputVal}" to contain "${expStr}"`);
+                  }
+                  assertionResult = await assertion.toBeAttached(finalOptions);
+                } else {
+                  throw textError;
+                }
+              }
               result.actual = `contains text "${Array.isArray(containExpected) ? containExpected.join(', ') : containExpected}"`;
               locatorString = await generateLocatorString(ref, locator);
               result.evidence.message = getAssertionEvidence(name, negate, locatorString, element, mainArgs);
@@ -291,13 +311,18 @@ export const validate_dom_assertions = defineTabTool({
               if (!args || args.assertionType !== 'selectHasValue')
                 throw new Error('selectHasValue requires proper arguments structure');
 
+              const useContains = !!mainArgs.contains;
+              const matchLabel = useContains ? 'contain' : 'be';
+
               const { value: selectValueExpected } = mainArgs;
               if (selectValueExpected === undefined)
-                throw new Error('selectHasValue requires "value" argument (string)');
+                throw new Error(`${name} requires "value" argument (string)`);
 
               const normalizedExpected = normalizeValue(selectValueExpected);
 
-              // Use expect.poll to retry the assertion with timeout
+              const matchesFn = (actual: string) =>
+                useContains ? actual.includes(normalizedExpected) : actual === normalizedExpected;
+
               const pollFn = async () => {
                 const actualValue = await locator.inputValue();
                 const normalizedActual = normalizeValue(actualValue);
@@ -306,7 +331,6 @@ export const validate_dom_assertions = defineTabTool({
 
               const pollFnDeep = async () => {
                 return await locator.evaluate((el: Element) => {
-                  // <select> element
                   if (el instanceof HTMLSelectElement) {
                     const selected = el.selectedOptions[0];
                     return {
@@ -314,14 +338,12 @@ export const validate_dom_assertions = defineTabTool({
                       displayText: selected?.textContent ?? '',
                     };
                   }
-                  // <input> (MUI / headless UI combobox)
                   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
                     return {
                       rawValue: el.value,
                       displayText: el.value,
                     };
                   }
-                  // Fallback: try text content
                   return {
                     rawValue: (el as HTMLElement).innerText || (el as HTMLElement).textContent || '',
                     displayText: (el as HTMLElement).innerText || (el as HTMLElement).textContent || '',
@@ -342,43 +364,34 @@ export const validate_dom_assertions = defineTabTool({
                   lastNormalizedActual = normalizedActual;
 
                   if (negate) {
-                    // For negated assertions, values should NOT match
-                    if (normalizedExpected === normalizedActual)
-                      throw new Error(`Expected select value to not be "${selectValueExpected}" (normalized: "${normalizedExpected}"), but got "${actualValue}" (normalized: "${normalizedActual}")`);
-
-                    // Values don't match, assertion passes
+                    if (matchesFn(normalizedActual))
+                      throw new Error(`Expected select value to not ${matchLabel} "${selectValueExpected}" (normalized: "${normalizedExpected}"), but got "${actualValue}" (normalized: "${normalizedActual}")`);
                     break;
                   } else {
-                    // For normal assertions, values should match
-                    if (normalizedExpected === normalizedActual) {
-                      // Values match, assertion passes
+                    if (matchesFn(normalizedActual)) {
                       found = true;
                       break;
                     }
-                    // Values don't match yet, will retry
-                    throw new Error(`Expected select value to be "${selectValueExpected}" (normalized: "${normalizedExpected}"), but got "${actualValue}" (normalized: "${normalizedActual}")`);
+                    throw new Error(`Expected select value to ${matchLabel} "${selectValueExpected}" (normalized: "${normalizedExpected}"), but got "${actualValue}" (normalized: "${normalizedActual}")`);
                   }
                 } catch (error) {
                   lastError = error instanceof Error ? error : new Error(String(error));
                   try {
-                    // workground for hot fix to check select value in deep
                     const { rawValue, displayText } = await pollFnDeep();
                     const normalizedRawValue = normalizeValue(rawValue);
                     const normalizedDisplayText = normalizeValue(displayText);
-                    if (normalizedExpected === normalizedRawValue || normalizedExpected === normalizedDisplayText) {
+                    if (matchesFn(normalizedRawValue) || matchesFn(normalizedDisplayText)) {
                       found = true;
                       break;
                     }
                   } catch (error) {
-                    // not sure how log here, but just ignore
+                    // ignore deep-check errors
                   }
 
-                  // If timeout hasn't expired, wait a bit and retry
                   if (Date.now() - startTime < selectTimeout) {
                     await new Promise(resolve => setTimeout(resolve, 100));
                     continue;
                   }
-                  // Timeout expired, throw the last error
                   throw lastError;
                 }
               }
@@ -386,13 +399,9 @@ export const validate_dom_assertions = defineTabTool({
               if (!found)
                 throw lastError;
 
+              if (negate && matchesFn(lastNormalizedActual))
+                throw new Error(`Expected select value to not ${matchLabel} "${selectValueExpected}" (normalized: "${normalizedExpected}"), but got "${lastActualValue}" (normalized: "${lastNormalizedActual}")`);
 
-              // If we get here and it's a negated assertion that didn't throw, it means values matched when they shouldn't
-              if (negate && normalizedExpected === lastNormalizedActual)
-                throw new Error(`Expected select value to not be "${selectValueExpected}" (normalized: "${normalizedExpected}"), but got "${lastActualValue}" (normalized: "${lastNormalizedActual}")`);
-
-
-              // Use a simple assertion that always passes when values match (or don't match for negated)
               assertionResult = await assertion.toBeAttached(finalOptions);
               result.actual = `value "${lastActualValue}" (normalized: "${lastNormalizedActual}")`;
               locatorString = await generateLocatorString(ref, locator);
