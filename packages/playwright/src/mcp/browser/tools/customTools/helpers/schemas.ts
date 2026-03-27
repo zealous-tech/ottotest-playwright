@@ -258,6 +258,7 @@ const toHaveValuesArgsSchema = z.object({
 
 const selectHasValueArgsSchema = z.object({
   value: z.string().describe('Expected value (case and space insensitive)'),
+  contains: z.boolean().optional().default(false).describe('When true, checks if the select value contains the expected string instead of exact match'),
   options: z.object({
   }).optional(),
 });
