@@ -391,6 +391,11 @@ const validateTabExistSchema = z.object({
   isCurrent: z.boolean().optional().describe('If true, also validates that the found tab is the current active tab'),
 });
 
+const validateTabCountSchema = z.object({
+  expectedCount: z.number().int().min(0).describe('Expected number of open browser tabs'),
+  operator: z.enum(['equals', 'notEquals']).optional().default('equals').describe('Comparison operator to use when comparing actual tab count against expected count'),
+});
+
 const generateLocatorSchema = z.object({
   ref: z.string().describe('Element reference from page snapshot'),
   element: z.string().describe('Human-readable element description for logging'),
@@ -475,6 +480,7 @@ export {
   dynamicSwitchSchema,
   makeRequestSchema,
   validateTabExistSchema,
+  validateTabCountSchema,
   generateLocatorSchema,
   customWaitSchema,
   ottoClickSchema,
