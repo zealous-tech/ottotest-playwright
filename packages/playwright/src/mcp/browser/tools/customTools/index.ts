@@ -29,6 +29,7 @@ import {
 } from './validations';
 import {
   get_computed_styles,
+  more_reference_information,
   extract_svg_from_element,
   extract_image_urls,
   generate_locator,
@@ -44,6 +45,7 @@ import {
 export default [
   otto_requests,
   get_computed_styles,
+  more_reference_information,
   extract_svg_from_element,
   extract_image_urls,
   validate_computed_styles,

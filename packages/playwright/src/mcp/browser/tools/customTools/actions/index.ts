@@ -20,6 +20,7 @@ export { extract_image_urls } from './extractImageUrls';
 export { extract_svg_from_element } from './extractSvgFromElement';
 export { generate_locator } from './generateLocator';
 export { get_computed_styles } from './getComputedStyles';
+export { more_reference_information } from './moreReferenceInformation';
 export { make_request } from './makeRequest';
 export { wait } from './wait';
 export { otto_click } from './ottoClick';
