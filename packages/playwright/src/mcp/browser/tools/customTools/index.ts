@@ -40,6 +40,7 @@ import {
   otto_wait_for,
   otto_click,
   otto_requests,
+  otto_upload
 } from './actions';
 
 export default [
@@ -67,4 +68,5 @@ export default [
   dynamic_switch,
   otto_click,
   otto_wait_for,
+  otto_upload
 ];

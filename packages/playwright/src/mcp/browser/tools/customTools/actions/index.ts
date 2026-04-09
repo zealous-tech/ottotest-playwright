@@ -25,3 +25,4 @@ export { make_request } from './makeRequest';
 export { wait } from './wait';
 export { otto_click } from './ottoClick';
 export { otto_requests } from './ottoNetwork';
+export { otto_upload } from './ottoUpload';
