@@ -67,9 +67,9 @@ export const otto_click = defineTabTool({
 
       const performClick = async (force = false) => {
         if (params.doubleClick)
-          await target.dblclick({ ...options, force, timeout: timeoutClick });
+          await target.dblclick({ ...options, force });
         else
-          await target.click({ ...options, force, timeout: timeoutClick });
+          await target.click({ ...options, force });
       };
 
       await target.waitFor({ state: 'visible' });

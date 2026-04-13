@@ -30,6 +30,7 @@ import {
 } from './validations';
 import {
   get_computed_styles,
+  more_reference_information,
   extract_svg_from_element,
   extract_image_urls,
   generate_locator,
@@ -40,11 +41,17 @@ import {
   otto_wait_for,
   otto_click,
   otto_requests,
+  otto_upload
+  select_map_section,
+  hover_map_section,
+  select_map_seat,
+  hover_map_seat,
 } from './actions';
 
 export default [
   otto_requests,
   get_computed_styles,
+  more_reference_information,
   extract_svg_from_element,
   extract_image_urls,
   validate_computed_styles,
@@ -67,4 +74,9 @@ export default [
   dynamic_switch,
   otto_click,
   otto_wait_for,
+  otto_upload
+  select_map_section,
+  hover_map_section,
+  select_map_seat,
+  hover_map_seat,
 ];

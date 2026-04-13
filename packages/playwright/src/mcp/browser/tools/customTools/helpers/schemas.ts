@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import { z } from 'playwright-core/lib/mcpBundle';
+import { DEFAULT_MAP_SELECTOR, DEFAULT_CONTAINER_SELECTOR } from './helpers';
 
 const elementStyleSchema = z.object({
   element: z.string().describe('Human-readable element description used to obtain permission to interact with the element'),
@@ -461,6 +462,79 @@ const validateDomAssertionsSchema = baseDomInputSchema.extend({
   checks: domAssertionChecksSchema,
 });
 
+const mapSelectorField = z
+  .string()
+  .default(DEFAULT_MAP_SELECTOR)
+  .describe(
+    `CSS selector used to locate the map element and wait for it to appear before interacting. Use the default value unless a custom one is specified.`,
+  );
+
+const containerSelectorField = z
+  .string()
+  .default(DEFAULT_CONTAINER_SELECTOR)
+  .describe(
+    `CSS selector for the seatmap container element used to resolve the map JS object. Use the default value unless a custom one is specified.`,
+  );
+
+const sectionSchema = z.object({
+  element: z.string().describe(
+    'Human-readable description of the specific section being interacted with (e.g. "section 111 on the map")'
+  ),
+  mapSelector: mapSelectorField,
+  containerSelector: containerSelectorField,
+  section: z
+    .string()
+    .optional()
+    .describe(
+      'Section identifier (e.g. "111", "ADAGA"). When omitted, a random available section is chosen automatically.',
+    ),
+  sectionType: z
+    .enum(['section', 'general_admission'])
+    .default('section')
+    .describe(
+      'Node type to operate on: "section" for regular numbered sections, "general_admission" for GA sections. Defaults to "section".',
+    ),
+});
+
+const seatSchema = z.object({
+  element: z.string().describe(
+    'Human-readable description of the specific seat being interacted with (e.g. "seat 19 row 2 section 112 on the map")'
+  ),
+  mapSelector: mapSelectorField,
+  containerSelector: containerSelectorField,
+  section: z
+    .string()
+    .optional()
+    .describe('Section identifier (e.g. "112").'),
+  row: z
+    .string()
+    .optional()
+    .describe('Row identifier within the section (e.g. "8").'),
+  seat: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe('Seat number within the row (e.g. 14).'),
+  tag: z
+    .enum([
+      'flashseats',
+      'standard',
+      'premiumvip',
+      'premium',
+      'filteredstandard',
+      'filteredflashseats',
+      'accessible',
+      'filteredsection',
+      'Hold-Standard',
+      'Sold-Standard',
+      'Open-Standard',
+      'demandtickets',
+    ])
+    .optional()
+    .describe(
+      'Filter available seats by tag/type. Applied in all random-selection modes (when seat is not fully specified). Ignored when section+row+seat are all supplied.',
+    ),
+});
+
 export {
   elementStyleSchema,
   elementImageSchema,
@@ -484,4 +558,6 @@ export {
   generateLocatorSchema,
   customWaitSchema,
   ottoClickSchema,
+  sectionSchema,
+  seatSchema,
 };
