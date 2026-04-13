@@ -41,6 +41,10 @@ import {
   otto_click,
   otto_requests,
   otto_upload
+  select_map_section,
+  hover_map_section,
+  select_map_seat,
+  hover_map_seat,
 } from './actions';
 
 export default [
@@ -69,4 +73,8 @@ export default [
   otto_click,
   otto_wait_for,
   otto_upload
+  select_map_section,
+  hover_map_section,
+  select_map_seat,
+  hover_map_seat,
 ];

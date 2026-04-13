@@ -26,3 +26,7 @@ export { wait } from './wait';
 export { otto_click } from './ottoClick';
 export { otto_requests } from './ottoNetwork';
 export { otto_upload } from './ottoUpload';
+export { select_map_section } from './selectMapSection';
+export { hover_map_section } from './hoverMapSection';
+export { select_map_seat } from './selectMapSeat';
+export { hover_map_seat } from './hoverMapSeat';

@@ -23,8 +23,8 @@ interface LogType {
 
 type Input = {
     method?: string;   // e.g. "GET" (case-sensitive, exact match on token)
-    url?: string;      // full or partial URL substring, case-sensitive
-    endpoint?: string; // pathname substring, e.g. "/api/users", case-sensitive
+    url?: string;      // substring or /regex/ against full URL
+    endpoint?: string; // substring or /regex/ against pathname+search
     keywords?: string[];
     logType?: LogType;
 };
@@ -38,7 +38,7 @@ export const otto_requests = defineTabTool({
         name: 'otto_browser_network_requests',
         title: 'Find specific network request',
         description:
-            'Search network request logs and return exactly ONE entry that satisfies structured filters (method/url/endpoint) AND contains ALL specified keywords. Keywords are searched across method, URL, headers, and bodies (case-sensitive). Use logType to control which fields are included in the output.',
+            'Search network request logs and return the LATEST matching entry that satisfies structured filters (method/url/endpoint) AND contains ALL specified keywords. URL and endpoint filters support RegExp when wrapped in /pattern/flags (e.g. "/\\/v1\\/resources$/"). Keywords are searched across method, URL, headers, and bodies (case-sensitive). Use logType to control which fields are included in the output.',
         inputSchema: z.object({
             method: z
                 .string()
@@ -47,11 +47,11 @@ export const otto_requests = defineTabTool({
             url: z
                 .string()
                 .optional()
-                .describe('Full or partial URL to match (substring, case-sensitive).'),
+                .describe('Full or partial URL to match. Plain string = substring match (case-sensitive). Wrap in /…/ for RegExp (e.g. "/\\/v1\\/resources$/").'),
             endpoint: z
                 .string()
                 .optional()
-                .describe('Pathname to match (substring of URL pathname, e.g., "/api/users", case-sensitive).'),
+                .describe('Pathname to match (against pathname+search). Plain string = substring match (case-sensitive). Wrap in /…/ for RegExp (e.g. "/\\/api\\/users$/").'),
             keywords: z
                 .array(z.string())
                 .default([])
@@ -98,7 +98,9 @@ export const otto_requests = defineTabTool({
         const endpointNorm = endpointFilter?.trim();
         const keywordsNorm = keywords.map((k) => k);
 
-        for (const req of await allRequests) {
+        const resolvedRequests = [...await allRequests];
+        for (let i = resolvedRequests.length - 1; i >= 0; i--) {
+            const req = resolvedRequests[i];
             if (!matchesStructuredFilters(req, methodNorm, urlNorm, endpointNorm)) {
                 continue;
             }
@@ -142,6 +144,25 @@ export const otto_requests = defineTabTool({
     },
 });
 
+const REGEX_META = /[$^*+?.()|\\{}\[\]]/;
+
+function toMatcher(filter: string): (value: string) => boolean {
+    const regexMatch = filter.match(/^\/(.+)\/([gimsuy]*)$/);
+    if (regexMatch) {
+        try {
+            const re = new RegExp(regexMatch[1], regexMatch[2]);
+            return (value: string) => re.test(value);
+        } catch {}
+    }
+    if (REGEX_META.test(filter)) {
+        try {
+            const re = new RegExp(filter);
+            return (value: string) => re.test(value);
+        } catch {}
+    }
+    return (value: string) => value.includes(filter);
+}
+
 function matchesStructuredFilters(
     request: playwright.Request,
     methodNorm?: string,
@@ -155,17 +176,17 @@ function matchesStructuredFilters(
 
     if (urlNorm) {
         const reqUrl = request.url() || '';
-        if (!reqUrl.includes(urlNorm)) return false;
+        if (!toMatcher(urlNorm)(reqUrl)) return false;
     }
 
     if (endpointNorm) {
+        const matcher = toMatcher(endpointNorm);
         try {
             const u = new URL(request.url());
-            const pathname = u.pathname || '';
-            if (!pathname.includes(endpointNorm)) return false;
+            if (!matcher(u.pathname + u.search)) return false;
         } catch {
             const reqUrl = request.url() || '';
-            if (!reqUrl.includes(endpointNorm)) return false;
+            if (!matcher(reqUrl)) return false;
         }
     }
 
