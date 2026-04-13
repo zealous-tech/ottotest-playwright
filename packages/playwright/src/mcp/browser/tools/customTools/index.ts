@@ -40,6 +40,10 @@ import {
   otto_wait_for,
   otto_click,
   otto_requests,
+  select_map_section,
+  hover_map_section,
+  select_map_seat,
+  hover_map_seat,
 } from './actions';
 
 export default [
@@ -67,4 +71,8 @@ export default [
   dynamic_switch,
   otto_click,
   otto_wait_for,
+  select_map_section,
+  hover_map_section,
+  select_map_seat,
+  hover_map_seat,
 ];

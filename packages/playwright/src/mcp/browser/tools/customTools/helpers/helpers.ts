@@ -19,6 +19,11 @@ import { execFile } from 'child_process';
 import { generateLocator } from '../../utils.js';
 import { applyArrayFilter, compareValues, parseCurlStderr, ELEMENT_ATTACHED_TIMEOUT } from './utils.js';
 import { ParsedCurlResponse, ValidationPayload, ValidationResult } from '../common/common.js';
+import type { Page } from 'playwright-core';
+
+export const DEFAULT_MAP_SELECTOR = "div[role='img'][aria-label*='Map']";
+export const DEFAULT_CONTAINER_SELECTOR =
+  ".seatmap-viewer, div:has(>div[id='inventory-viewer-container'])";
 
 async function getAllComputedStylesDirect(
   tab: any,
@@ -1028,6 +1033,173 @@ function buildValidationErrorPayload(
   return payload;
 }
 
+/**
+ * Resolves the venue map object from the page.
+ *
+ * Resolution order:
+ *   1. Wait for the map element identified by `mapSelector` to appear.
+ *   2. Wait for the loader overlay to disappear.
+ *   3. Query the container element via `containerSelector`.
+ *   4. For the found element try both strategies:
+ *      - DVM:   `dataset.viewerid` → `window.DvmViewers[id]`
+ *      - React: `__reactInternalInstance` → memoizedProps chain
+ *
+ * Throws when no map can be resolved.
+ */
+async function getMapHandle(
+  page: Page,
+  mapSelector: string = DEFAULT_MAP_SELECTOR,
+  containerSelector: string = DEFAULT_CONTAINER_SELECTOR,
+) {
+  await page.locator(mapSelector).first().waitFor({ state: 'visible' });
+  await page.locator('.c-axs-loader').waitFor({ state: 'hidden' });
+  await page.getByRole('region', { name: 'Seat Map' }).locator('i').waitFor({ state: 'hidden' });
+  return page.evaluateHandle(
+    ({ containerSelector }: { containerSelector: string }) => {
+      function resolveFromElement(el: Element): any {
+        // Strategy 1 – DVM Viewers
+        try {
+          const viewerId = (el as HTMLElement).dataset?.viewerid;
+          if (viewerId) {
+            const map = (window as any).DvmViewers?.[viewerId];
+            if (map) return map;
+          }
+        } catch {
+          // dataset or DvmViewers access threw
+        }
+
+        // Strategy 2 – React fiber traversal (__reactFiber or __reactInternalInstance)
+        // on a stale/unmounted fiber, so we guard with try/catch
+        const reactKey = Object.getOwnPropertyNames(el).find(p =>
+          p.startsWith('__reactFiber') || p.startsWith('__reactInternalInstance'),
+        );
+        if (reactKey) {
+          try {
+            const map = (el as any)[reactKey]
+              ?.memoizedProps?.children?.[0]
+              ?.props?.children?.[4]
+              ?.props?.viewer;
+            if (map) return map;
+          } catch {
+            // stale/unmounted fiber threw on property access
+          }
+        }
+
+        return null;
+      }
+
+      const el = document.querySelector(containerSelector);
+      if (el) {
+        const map = resolveFromElement(el);
+        if (map) return map;
+      }
+
+      throw new Error(
+        `Could not resolve map object. Tried containerSelector: "${containerSelector}". ` +
+        'Neither DVM (dataset.viewerid / DvmViewers) nor React (__reactInternalInstance) strategy matched.',
+      );
+    },
+    { containerSelector },
+  );
+}
+
+/**
+ * Returns the viewport-absolute centre coordinates of a map node.
+ * Mirrors the coordinate logic used in MapInteractionService.getNodeCoordinates.
+ */
+async function getNodeViewportCoords(
+  page: Page,
+  mapHandle: any,
+  nodeId: string,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate(
+    ({ map, nodeId }: { map: any; nodeId: string }) => {
+      const nodeEl = map.getNodeById(nodeId);
+      if (!nodeEl) throw new Error(`Node "${nodeId}" not found in map`);
+      const rect: DOMRect = nodeEl.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    },
+    { map: mapHandle, nodeId },
+  );
+}
+
+/**
+ * Resolves the target section node ID.
+ * If `section` is provided the ID is constructed directly (`S_<section>`).
+ * Otherwise a random available node of `sectionType` is chosen from the map.
+ */
+async function resolveSectionNodeId(
+  page: Page,
+  mapHandle: any,
+  section: string | undefined,
+  sectionType: string,
+): Promise<string> {
+  if (section) {
+    return section.startsWith('S_') ? section : `S_${section}`;
+  }
+  return page.evaluate(
+    
+    ({ map, sectionType }: { map: any; sectionType: string }) => {      
+      const nodes: any[] = map
+        .getNodesByType(sectionType)
+        .filter((n: any) => n.state === 'available');
+      if (!nodes.length)
+        throw new Error(`No available "${sectionType}" nodes found on the map`);
+      return nodes[Math.floor(Math.random() * nodes.length)].id as string;
+    },
+    { map: mapHandle, sectionType },
+  );
+}
+
+/**
+ * Resolves the target seat node ID.
+ * If section+row+seat are all provided the ID is constructed directly.
+ * Otherwise a random available seat is chosen, optionally filtered by `tag`.
+ */
+async function resolveSeatNodeId(
+  page: Page,
+  mapHandle: any,
+  section: string | undefined,
+  row: string | undefined,
+  seat: string | number | undefined,
+  tag: string | undefined,
+): Promise<string> {
+  // All three provided → construct ID directly, no map query needed.
+  if (section !== undefined && row !== undefined && seat !== undefined) {
+    return `S_${section}-${row}-${seat}`;
+  }
+  return page.evaluate(
+    ({ map, section, row, tag }: { map: any; section?: string; row?: string; tag?: string }) => {
+      // Seat node IDs follow the pattern S_<section>-<row>-<seat>.
+      // Build a prefix filter based on whichever parts are known.
+      const prefix = section !== undefined
+        ? row !== undefined
+          ? `S_${section}-${row}-`   // section + row known → filter to that row
+          : `S_${section}-`          // section only → filter to that section
+        : null;                       // nothing known → whole map
+
+      const nodes: any[] = map
+        .getNodesByType('seat')
+        .filter((n: any) =>
+          n.state === 'available' &&
+          (!tag || n.tag === tag) &&
+          (!prefix || (n.id as string).startsWith(prefix)),
+        );
+      if (!nodes.length) {
+        const scope = prefix ?? 'whole map';
+        throw new Error(
+          `No available seat${tag ? ` with tag "${tag}"` : ''} found in ${scope}`,
+        );
+      }
+      return nodes[Math.floor(Math.random() * nodes.length)].id as string;
+    },
+    { map: mapHandle, section, row, tag },
+  );
+}
+
+
+
+
 export {
   getAllComputedStylesDirect,
   hasAlertDialog,
@@ -1049,4 +1221,8 @@ export {
   createValidationEvidence,
   buildValidationPayload,
   buildValidationErrorPayload,
+  getMapHandle,
+  getNodeViewportCoords,
+  resolveSectionNodeId,
+  resolveSeatNodeId,
 };
