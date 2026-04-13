@@ -116,7 +116,14 @@ export const validate_response = defineTabTool({
           actualValue = targetValue.length;
         } else {
           const queryResult = jp.query(parsedResponseData, normalizedPath);
-          actualValue = queryResult.length === 1 ? queryResult[0] : queryResult;
+          if (queryResult.length === 1) {
+            const inner = queryResult[0];
+            actualValue = Array.isArray(check.expected) && !Array.isArray(inner)
+              ? queryResult
+              : inner;
+          } else {
+            actualValue = queryResult;
+          }
         }
 
         // Compare values if expected is provided

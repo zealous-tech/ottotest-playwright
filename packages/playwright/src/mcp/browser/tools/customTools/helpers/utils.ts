@@ -135,6 +135,20 @@ function isColorInRange(actualColor: string, range: { minR: number; maxR: number
            rgb.b >= range.minB && rgb.b <= range.maxB;
 }
 
+function deepEqual(a: any, b: any): boolean {
+  if (a === b)
+    return true;
+  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object')
+    return false;
+  if (Array.isArray(a) !== Array.isArray(b))
+    return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length)
+    return false;
+  return keysA.every(key => deepEqual(a[key], b[key]));
+}
+
 function compareValues(actual: any, expected: any, operator: string) {
   switch (operator) {
     case 'equals':
@@ -143,6 +157,8 @@ function compareValues(actual: any, expected: any, operator: string) {
         return { passed: actual === Number(expected), actual };
       else if (typeof actual === 'string' && typeof expected === 'number')
         return { passed: Number(actual) === expected, actual };
+      else if (typeof actual === 'object' || typeof expected === 'object')
+        return { passed: deepEqual(actual, expected), actual };
       else
         return { passed: actual === expected, actual };
 
@@ -151,6 +167,8 @@ function compareValues(actual: any, expected: any, operator: string) {
         return { passed: actual !== Number(expected), actual };
       else if (typeof actual === 'string' && typeof expected === 'number')
         return { passed: Number(actual) !== expected, actual };
+      else if (typeof actual === 'object' || typeof expected === 'object')
+        return { passed: !deepEqual(actual, expected), actual };
       else
         return { passed: actual !== expected, actual };
 
@@ -163,9 +181,28 @@ function compareValues(actual: any, expected: any, operator: string) {
     case 'less_than':
       return { passed: Number(actual) < Number(expected), actual };
     case 'hasValue':
-      // Check if value exists (not null, undefined, or empty string)
-      const hasValue = actual !== null && actual !== undefined && actual !== '';
+      const isEmpty = actual === null || actual === undefined || actual === '' ||
+        (Array.isArray(actual) && actual.length === 0);
+      const hasValue = !isEmpty;
       return { passed: hasValue === expected, actual: hasValue };
+    case 'every_in':
+      if (!Array.isArray(actual))
+        return { passed: false, actual: `expected array, got ${typeof actual}` };
+      if (!Array.isArray(expected))
+        return { passed: false, actual: `expected array of allowed values` };
+      return {
+        passed: actual.every(item => expected.some(allowed => deepEqual(item, allowed))),
+        actual,
+      };
+    case 'some_in':
+      if (!Array.isArray(actual))
+        return { passed: false, actual: `expected array, got ${typeof actual}` };
+      if (!Array.isArray(expected))
+        return { passed: false, actual: `expected array of allowed values` };
+      return {
+        passed: actual.some(item => expected.some(allowed => deepEqual(item, allowed))),
+        actual,
+      };
     default:
       return { passed: false, actual: `Unknown operator: ${operator}` };
   }
