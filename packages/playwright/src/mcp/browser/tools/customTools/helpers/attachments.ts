@@ -17,8 +17,6 @@
 import fs from 'fs';
 import path from 'path';
 
-const UPLOAD_ROOT = path.join(process.cwd(), '.otto-uploads');
-
 export interface FetchedAttachment {
   buffer: Buffer;
   fileName: string;
@@ -45,23 +43,32 @@ export async function fetchAttachment(url: string): Promise<FetchedAttachment> {
   return { buffer: Buffer.from(arrayBuffer), fileName };
 }
 
+function resolveUploadRoot(rootDir: string): string {
+  const resolved = path.resolve(rootDir);
+  return path.join(resolved, '.otto-uploads');
+}
+
 /**
- * Removes all previous upload directories inside UPLOAD_ROOT.
+ * Removes previous upload sub-directories inside the upload root.
+ * Only removes entries whose names match the "upload-" prefix we create,
+ * so stray files placed here by something else are left alone.
  */
-function purgeStaleUploads(): void {
-  if (!fs.existsSync(UPLOAD_ROOT))
+function purgeStaleUploads(uploadRoot: string): void {
+  if (!fs.existsSync(uploadRoot))
     return;
-  for (const entry of fs.readdirSync(UPLOAD_ROOT)) {
-    const full = path.join(UPLOAD_ROOT, entry);
+  for (const entry of fs.readdirSync(uploadRoot)) {
+    if (!entry.startsWith('upload-'))
+      continue;
     try {
-      fs.rmSync(full, { recursive: true, force: true });
-    } catch {  }
+      fs.rmSync(path.join(uploadRoot, entry), { recursive: true, force: true });
+    } catch { /* best-effort */ }
   }
 }
 
-export function downloadAttachmentsToLocalDir(attachments: FetchedAttachment[]): string[] {
-  purgeStaleUploads();
-  const dir = path.join(UPLOAD_ROOT, `upload-${Date.now()}`);
+export function downloadAttachmentsToLocalDir(attachments: FetchedAttachment[], rootDir: string): string[] {
+  const uploadRoot = resolveUploadRoot(rootDir);
+  purgeStaleUploads(uploadRoot);
+  const dir = path.join(uploadRoot, `upload-${Date.now()}`);
   fs.mkdirSync(dir, { recursive: true });
   return attachments.map(att => {
     const filePath = path.join(dir, att.fileName);
