@@ -56,9 +56,11 @@ export const validate_tab_count = defineTabTool({
       const passed = compare(actualCount, operator, expectedCount);
       const status = passed ? 'pass' : 'fail';
 
+      const operatorLabel = operator === 'equals' ? 'to equal' : 'to not equal';
+      const openTabsList = tabsWithInfo.map((t: any) => t.url).join(', ');
       const evidence = passed
-          ? `Tab count check passed: actual count ${actualCount} ${operator} ${expectedCount}. Open tabs: ${tabsWithInfo.map((t: any) => t.url).join(', ')}`
-          : `Tab count check failed: actual count ${actualCount} ${operator} ${expectedCount}. Open tabs: ${tabsWithInfo.map((t: any) => t.url).join(', ')}`;
+          ? `Tab count check passed: expected tab count ${operatorLabel} ${expectedCount} and got ${actualCount}. Open tabs: ${openTabsList}`
+          : `Tab count check failed: expected tab count ${operatorLabel} ${expectedCount} but got ${actualCount}. Open tabs: ${openTabsList}`;
 
       const evidenceArray = [{
         command: JSON.stringify({
