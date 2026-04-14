@@ -15,7 +15,7 @@
  */
 
 import { z } from 'playwright-core/lib/mcpBundle';
-import { defineTabTool } from '../../tool';
+import { defineTool } from '../../tool';
 import { fetchAttachment, downloadAttachmentsToLocalDir } from '../helpers/attachments';
 
 const ottoUploadSchema = z.object({
@@ -24,7 +24,7 @@ const ottoUploadSchema = z.object({
   ),
 });
 
-export const otto_upload = defineTabTool({
+export const otto_upload = defineTool({
   capability: 'core',
 
   schema: {
@@ -35,8 +35,9 @@ export const otto_upload = defineTabTool({
     type: 'action',
   },
 
-  handle: async (tab, params, response) => {
+  handle: async (context, params, response) => {
     response.setIncludeSnapshot();
+    const tab = await context.ensureTab();
 
     const modalState = tab.modalStates().find(state => state.type === 'fileChooser');
     if (!modalState)
@@ -49,8 +50,9 @@ export const otto_upload = defineTabTool({
       return;
     }
 
+    const rootDir = context.firstRootPath() ?? process.cwd();
     const attachments = await Promise.all(params.attachmentUrls.map(fetchAttachment));
-    const localPaths = downloadAttachmentsToLocalDir(attachments);
+    const localPaths = downloadAttachmentsToLocalDir(attachments, rootDir);
 
     response.addCode(`await fileChooser.setFiles(${JSON.stringify(localPaths)})`);
 
@@ -58,6 +60,4 @@ export const otto_upload = defineTabTool({
       await modalState.fileChooser.setFiles(localPaths);
     });
   },
-
-  clearsModalState: 'fileChooser',
 });
