@@ -1,6 +1,6 @@
 {
   "name": "@zealous-tech/playwright",
-  "version": "1.59.0-rc.9",
+  "version": "1.59.0-rc.10",
   "description": "A high-level API to automate web browsers",
   "repository": {
     "type": "git",
