@@ -20,7 +20,7 @@ export const select_map_section = defineTabTool({
     const mapHandle = await getMapHandle(page, params.mapSelector, params.containerSelector);
     const nodeId = await resolveSectionNodeId(page, mapHandle, params.section, params.sectionType);
 
-    response.addTextResult(`Selected section: ${nodeId.replace(/^S_/, '')}`);
+    response.addTextResult(JSON.stringify({ section: nodeId.replace(/^S_/, '') }));
     const { x, y } = await getNodeViewportCoords(page, mapHandle, nodeId);
     await page.mouse.click(x, y);
     await page.waitForTimeout(2000);

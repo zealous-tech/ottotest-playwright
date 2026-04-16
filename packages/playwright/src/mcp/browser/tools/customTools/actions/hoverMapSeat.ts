@@ -31,7 +31,7 @@ export const hover_map_seat = defineTabTool({
     );
 
     const [sec, row, seat] = nodeId.replace(/^S_/, '').split('-');
-    response.addTextResult(`Hovered seat: section ${sec}, row ${row}, seat ${seat}`);
+    response.addTextResult(JSON.stringify({ section: sec, row: row, seat: seat }));
     const { x, y } = await getNodeViewportCoords(page, mapHandle, nodeId);
     await page.mouse.move(x, y);
   },

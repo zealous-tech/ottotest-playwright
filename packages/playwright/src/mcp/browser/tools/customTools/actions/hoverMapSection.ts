@@ -20,7 +20,7 @@ export const hover_map_section = defineTabTool({
     const mapHandle = await getMapHandle(page, params.mapSelector, params.containerSelector);
     const nodeId = await resolveSectionNodeId(page, mapHandle, params.section, params.sectionType);
 
-    response.addTextResult(`Hovered section: ${nodeId.replace(/^S_/, '')}`);
+    response.addTextResult(JSON.stringify({ section: nodeId.replace(/^S_/, '') }));
     const { x, y } = await getNodeViewportCoords(page, mapHandle, nodeId);
     await page.mouse.move(x, y);
   },
