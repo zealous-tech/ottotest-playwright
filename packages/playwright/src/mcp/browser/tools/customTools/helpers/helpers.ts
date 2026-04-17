@@ -1128,6 +1128,7 @@ async function getNodeViewportCoords(
  * If `section` is provided the ID is constructed directly (`S_<section>`).
  * Otherwise a random available node of `sectionType` is chosen from the map.
  */
+
 async function resolveSectionNodeId(
   page: Page,
   mapHandle: any,
@@ -1135,20 +1136,30 @@ async function resolveSectionNodeId(
   sectionType: string,
 ): Promise<string> {
   if (section) {
-    return section.startsWith('S_') ? section : `S_${section}`;
+    const nodeId = section.startsWith('S_') ? section : `S_${section}`;
+    const exists = await page.evaluate(
+      ({ map, nodeId }: { map: any; nodeId: string }) => !!map.getNodeById(nodeId),
+      { map: mapHandle, nodeId },
+    );
+    if (!exists)
+      throw new Error(`Section "${section}" not found on the map`);
+    return nodeId;
   }
-  return page.evaluate(
-    
-    ({ map, sectionType }: { map: any; sectionType: string }) => {      
+  const result = await page.evaluate(
+    ({ map, sectionType }: { map: any; sectionType: string }) => {
       const nodes: any[] = map
         .getNodesByType(sectionType)
         .filter((n: any) => n.state === 'available');
-      if (!nodes.length)
-        throw new Error(`No available "${sectionType}" nodes found on the map`);
-      return nodes[Math.floor(Math.random() * nodes.length)].id as string;
+      return nodes.length ? nodes[Math.floor(Math.random() * nodes.length)].id as string : null;
     },
     { map: mapHandle, sectionType },
   );
+
+  if (!result) {
+    const label = sectionType === 'general admission' ? 'general admission section' : 'section';
+    throw new Error(`No available ${label} found on the map`);
+  }
+  return result;
 }
 
 /**
@@ -1164,19 +1175,24 @@ async function resolveSeatNodeId(
   seat: string | number | undefined,
   tag: string | undefined,
 ): Promise<string> {
-  // All three provided → construct ID directly, no map query needed.
+  // All three provided → construct ID and verify it exists on the map.
   if (section !== undefined && row !== undefined && seat !== undefined) {
-    return `S_${section}-${row}-${seat}`;
+    const nodeId = `S_${section}-${row}-${seat}`;
+    const exists = await page.evaluate(
+      ({ map, nodeId }: { map: any; nodeId: string }) => !!map.getNodeById(nodeId),
+      { map: mapHandle, nodeId },
+    );
+    if (!exists)
+      throw new Error(`Seat ${seat} on row ${row} in section ${section} was not found on the map`);
+    return nodeId;
   }
-  return page.evaluate(
+  const result = await page.evaluate(
     ({ map, section, row, tag }: { map: any; section?: string; row?: string; tag?: string }) => {
-      // Seat node IDs follow the pattern S_<section>-<row>-<seat>.
-      // Build a prefix filter based on whichever parts are known.
       const prefix = section !== undefined
         ? row !== undefined
-          ? `S_${section}-${row}-`   // section + row known → filter to that row
-          : `S_${section}-`          // section only → filter to that section
-        : null;                       // nothing known → whole map
+          ? `S_${section}-${row}-`
+          : `S_${section}-`
+        : null;
 
       const nodes: any[] = map
         .getNodesByType('seat')
@@ -1185,16 +1201,21 @@ async function resolveSeatNodeId(
           (!tag || n.tag === tag) &&
           (!prefix || (n.id as string).startsWith(prefix)),
         );
-      if (!nodes.length) {
-        const scope = prefix ?? 'whole map';
-        throw new Error(
-          `No available seat${tag ? ` with tag "${tag}"` : ''} found in ${scope}`,
-        );
-      }
-      return nodes[Math.floor(Math.random() * nodes.length)].id as string;
+      return nodes.length ? nodes[Math.floor(Math.random() * nodes.length)].id as string : null;
     },
     { map: mapHandle, section, row, tag },
   );
+
+  if (!result) {
+    const parts = [
+      section !== undefined ? `section ${section}` : null,
+      row !== undefined ? `row ${row}` : null,
+      tag ? `tag "${tag}"` : null,
+    ].filter(Boolean);
+    const scope = parts.length ? parts.join(', ') : 'the map';
+    throw new Error(`No available seat found in ${scope}`);
+  }
+  return result;
 }
 
 
