@@ -1123,6 +1123,16 @@ async function getNodeViewportCoords(
   );
 }
 
+function isNodeInViewport(
+  page: Page,
+  coords: { x: number; y: number },
+): boolean {
+  const viewport = page.viewportSize();
+  return !!(viewport
+    && coords.x >= 0 && coords.x <= viewport.width
+    && coords.y >= 0 && coords.y <= viewport.height);
+}
+
 /**
  * Resolves the target section node ID.
  * If `section` is provided the ID is constructed directly (`S_<section>`).
@@ -1244,6 +1254,7 @@ export {
   buildValidationErrorPayload,
   getMapHandle,
   getNodeViewportCoords,
+  isNodeInViewport,
   resolveSectionNodeId,
   resolveSeatNodeId,
 };
