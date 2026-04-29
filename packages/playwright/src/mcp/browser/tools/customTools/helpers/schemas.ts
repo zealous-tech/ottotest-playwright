@@ -287,9 +287,9 @@ const checkAlertInSnapshotSchema = z.object({
 });
 
 const defaultValidationSchema = z.object({
-  ref: z.string().optional().describe('Element reference from the page snapshot. Required for element-based validation.'),
-  element: z.string().optional().describe('Description of the specific element with the given ref. Required for element-based validation.'),
-  jsCode: z.string().describe('JavaScript code to execute. For element mode: receives "element" parameter (the DOM element). For data mode: receives "data" parameter (the extracted data object/array). Can return simple "pass"/"fail" OR rich object { result: "pass"|"fail", message: "Human readable description", expected: value, actual: value } for better evidence.'),
+  ref: z.string().optional().describe('Element reference from the page snapshot. Required for element-based validation, omit for data-only validation.'),
+  element: z.string().optional().describe('Description of the specific element with the given ref. Required for element-based validation, omit for data-only validation.'),
+  jsCode: z.string().describe('JavaScript code to execute. Element mode (ref+element provided): receives "element" (DOM node) and "document". Data-only mode (no ref/element): receives only "document", works with inline data from variable replacement. Must return "pass"/"fail" string OR rich object { result: "pass"|"fail", message: "Human readable description", expected: value, actual: value }.'),
 });
 
 const validateResponseSchema = z.object({
@@ -535,7 +535,23 @@ const seatSchema = z.object({
     ),
 });
 
+const fileDownloadSchema = z.object({
+  fileName: z.string().describe(
+    'Logical name for the downloaded file. This name is used to reference the file data later as ${<fileName>} in validations or actions.'
+  ),
+  hubUploadUrl: z.string().optional().describe(
+    'URL to upload the downloaded file to the command hub. Automatically injected by the hub — do not set manually.'
+  ),
+  waitForDownload: z.boolean().optional().default(false).describe(
+    'When true, waits up to `timeout` seconds for a new download to appear (use when the export button was clicked in a prior action). When false, reads the most recent already-completed download.'
+  ),
+  timeout: z.number().optional().default(30).describe(
+    'Maximum seconds to wait for the download to complete (only used when waitForDownload is true).'
+  ),
+});
+
 export {
+  fileDownloadSchema,
   elementStyleSchema,
   elementImageSchema,
   elementSvgSchema,
