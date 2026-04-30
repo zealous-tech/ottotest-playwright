@@ -511,9 +511,9 @@ const seatSchema = z.object({
     .optional()
     .describe('Row identifier within the section (e.g. "8").'),
   seat: z
-    .union([z.string(), z.number()])
+    .string()
     .optional()
-    .describe('Seat number within the row (e.g. 14).'),
+    .describe('Seat number within the row (e.g. "14").'),
   tag: z
     .enum([
       'flashseats',
@@ -533,6 +533,107 @@ const seatSchema = z.object({
     .describe(
       'Filter available seats by tag/type. Applied in all random-selection modes (when seat is not fully specified). Ignored when section+row+seat are all supplied.',
     ),
+});
+
+const sectionTagEnum = z.enum([
+  'filteredsection',
+  'selected',
+  'none',
+]);
+
+const seatTagEnum = z.enum([
+  'standard',
+  'flashseats',
+  'premium',
+  'premiumvip',
+  'accessible',
+  'demandtickets',
+  'filteredstandard',
+  'filteredflashseats',
+  'Hold-Standard',
+  'Sold-Standard',
+  'Open-Standard',
+  'filtered',
+]);
+
+const sectionStateEnum = z.enum([
+  'available',
+  'unavailable',
+]);
+
+const seatStateEnum = z.enum([
+  'available',
+  'unavailable',
+  'selected',
+]);
+
+const validateMapNodeSchema = z.object({
+  element: z.string().describe(
+    'Human-readable description of the node being validated (e.g. "seat 5 row 2 section 112" or "section 110")'
+  ),
+  mapSelector: mapSelectorField,
+  containerSelector: containerSelectorField,
+  nodeType: z.enum(['seat', 'section', 'general_admission']).describe(
+    'Type of map node to validate: "seat" for individual seats, "section" for section nodes, "general_admission" for GA sections.'
+  ),
+  targets: z.array(z.object({
+    section: z.string().optional().describe('Section identifier (e.g. "112")'),
+    row:     z.string().optional().describe('Row identifier (e.g. "2"). Only relevant for seat nodes.'),
+    seat:    z.string().optional().describe('Seat number within the row (e.g. "5"). Only relevant for seat nodes.'),
+  })).optional().describe(
+    'List of nodes to validate. Each entry identifies a seat (section+row+seat) or section/GA node (section). ' +
+    'All entries share the same nodeType, expectedStyles and expectedStates. ' +
+    'For general_admission nodes, omit targets entirely — nodeType "general_admission" is sufficient.'
+  ),
+  expectedStyles: z.object({
+    fillStyle: z.object({
+      from:   z.string().describe('Lower bound hex color, e.g. "#0070EE"'),
+      to:     z.string().describe('Upper bound hex color, e.g. "#0090FF"'),
+      negate: z.boolean().optional().describe('If true, asserts the color is outside the range'),
+    }).optional().describe('Expected fillStyle hex color range. Each RGB channel of the actual color must fall between from and to.'),
+    textFillStyle: z.object({
+      from:   z.string().describe('Lower bound hex color, e.g. "#F0F0F0"'),
+      to:     z.string().describe('Upper bound hex color, e.g. "#FFFFFF"'),
+      negate: z.boolean().optional().describe('If true, asserts the color is outside the range'),
+    }).optional().describe('Expected textFillStyle hex color range. Each RGB channel of the actual color must fall between from and to.'),
+    iconTag: z.object({
+      value:  z.string().describe('Seat tag whose icon should be validated (e.g. "premium", "accessible", "flashseats")'),
+      negate: z.boolean().optional().describe('If true, asserts the icon does NOT match the resolved value'),
+    }).optional().describe(
+      'Validates actualStyle.icon against the icon resolved from the given tag via the internal tag→icon mapping. ' +
+      'Applicable to seat nodes only.'
+    ),
+  }).optional().describe(
+    'Style properties to validate against the resolved style config. ' +
+    'Supports "fillStyle", "textFillStyle" (all node types) and "iconTag" (seat nodes only). ' +
+    'If omitted the tool returns the actual style info without a pass/fail result.'
+  ),
+  expectedStates: z.object({
+    tag: z.object({
+      value: z.union([
+        sectionTagEnum.describe('Use for section or general_admission nodes'),
+        seatTagEnum.describe('Use for seat nodes'),
+      ]),
+      negate: z.boolean().optional().describe('If true, asserts the tag does NOT match the value'),
+    }).optional(),
+    hover: z.object({
+      value: z.boolean().describe('true = hovered, false = not hovered'),
+    }).optional(),
+    state: z.object({
+      value: z.union([
+        sectionStateEnum.describe('Use for section or general_admission nodes'),
+        seatStateEnum.describe('Use for seat nodes'),
+      ]),
+      negate: z.boolean().optional().describe('If true, asserts the state does NOT match the value'),
+    }).optional(),
+    description: z.object({
+      value: z.string().describe('Expected description string of the seat/section'),
+      negate: z.boolean().optional().describe('If true, asserts the description does NOT match the value'),
+    }).optional(),
+  }).optional().describe(
+    'Node state properties to validate. Supported keys: "tag", "hover", "state", "description". ' +
+    'Each key is compared against the actual runtime value of the corresponding node property.'
+  ),
 });
 
 export {
@@ -560,4 +661,5 @@ export {
   ottoClickSchema,
   sectionSchema,
   seatSchema,
+  validateMapNodeSchema,
 };
