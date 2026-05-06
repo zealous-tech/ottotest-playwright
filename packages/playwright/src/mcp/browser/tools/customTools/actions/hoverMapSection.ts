@@ -1,6 +1,6 @@
 import { defineTabTool } from '../../tool';
 import { sectionSchema } from '../helpers/schemas';
-import { getMapHandle, getNodeViewportCoords, resolveSectionNodeId } from '../helpers/helpers';
+import { isNodeInViewport, getMapHandle, getNodeViewportCoords, resolveSectionNodeId } from '../helpers/helpers';
 
 export const hover_map_section = defineTabTool({
   capability: 'core',
@@ -19,9 +19,12 @@ export const hover_map_section = defineTabTool({
     const page = tab.page;
     const mapHandle = await getMapHandle(page, params.mapSelector, params.containerSelector);
     const nodeId = await resolveSectionNodeId(page, mapHandle, params.section, params.sectionType);
+    const section = nodeId.replace(/^S_/, '');
 
-    response.addTextResult(JSON.stringify({ section: nodeId.replace(/^S_/, '') }));
+    response.addTextResult(JSON.stringify({ section }));
     const { x, y } = await getNodeViewportCoords(page, mapHandle, nodeId);
+    if (!isNodeInViewport(page, { x, y }))
+      throw new Error(`Unable to perform hover action on the "${section}" section as the element is outside of the visible viewport`);
     await page.mouse.move(x, y);
   },
 });
