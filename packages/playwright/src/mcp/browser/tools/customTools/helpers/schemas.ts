@@ -476,6 +476,17 @@ const containerSelectorField = z
     `CSS selector for the seatmap container element used to resolve the map JS object. Use the default value unless a custom one is specified.`,
   );
 
+const sectionTagEnum = z.enum([
+  'filteredsection',
+  'selected',
+  'none',
+]);
+
+const sectionStateEnum = z.enum([
+  'available',
+  'unavailable',
+]);
+
 const sectionSchema = z.object({
   element: z.string().describe(
     'Human-readable description of the specific section being interacted with (e.g. "section 111 on the map")'
@@ -494,7 +505,33 @@ const sectionSchema = z.object({
     .describe(
       'Node type to operate on: "section" for regular numbered sections, "general_admission" for GA sections. Defaults to "section".',
     ),
+  tag: sectionTagEnum
+    .optional()
+    .describe(
+      'Filter available sections by tag. Applied only when "section" is omitted (random-selection mode). Defaults to "none".',
+    ),
 });
+
+const seatTagEnum = z.enum([
+  'standard',
+  'flashseats',
+  'premium',
+  'premiumvip',
+  'accessible',
+  'demandtickets',
+  'filteredstandard',
+  'filteredflashseats',
+  'Hold-Standard',
+  'Sold-Standard',
+  'Open-Standard',
+  'filtered',
+]);
+
+const seatStateEnum = z.enum([
+  'available',
+  'unavailable',
+  'selected',
+]);
 
 const seatSchema = z.object({
   element: z.string().describe(
@@ -514,24 +551,15 @@ const seatSchema = z.object({
     .string()
     .optional()
     .describe('Seat number within the row (e.g. "14").'),
-  tag: z
-    .enum([
-      'flashseats',
-      'standard',
-      'premiumvip',
-      'premium',
-      'filteredstandard',
-      'filteredflashseats',
-      'accessible',
-      'filteredsection',
-      'Hold-Standard',
-      'Sold-Standard',
-      'Open-Standard',
-      'demandtickets',
-    ])
+  tag: z.enum([...seatTagEnum.options, 'non-filtered'])
     .optional()
     .describe(
       'Filter available seats by tag/type. Applied in all random-selection modes (when seat is not fully specified). Ignored when section+row+seat are all supplied.',
+    ),
+  state: seatStateEnum
+    .optional()
+    .describe(
+      'Filter seats by state. Applied in all random-selection modes (when seat is not fully specified). Defaults to "available".',
     ),
 });
 
@@ -549,38 +577,6 @@ const fileDownloadSchema = z.object({
     'Maximum seconds to wait for the download to complete (only used when waitForDownload is true).'
   ),
 });
-
-const sectionTagEnum = z.enum([
-  'filteredsection',
-  'selected',
-  'none',
-]);
-
-const seatTagEnum = z.enum([
-  'standard',
-  'flashseats',
-  'premium',
-  'premiumvip',
-  'accessible',
-  'demandtickets',
-  'filteredstandard',
-  'filteredflashseats',
-  'Hold-Standard',
-  'Sold-Standard',
-  'Open-Standard',
-  'filtered',
-]);
-
-const sectionStateEnum = z.enum([
-  'available',
-  'unavailable',
-]);
-
-const seatStateEnum = z.enum([
-  'available',
-  'unavailable',
-  'selected',
-]);
 
 const validateMapNodeSchema = z.object({
   element: z.string().describe(
