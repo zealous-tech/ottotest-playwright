@@ -1144,6 +1144,7 @@ async function resolveSectionNodeId(
   mapHandle: any,
   section: string | undefined,
   sectionType: string,
+  tag: string = 'none',
 ): Promise<string> {
   if (section) {
     const nodeId = section.startsWith('S_') ? section : `S_${section}`;
@@ -1156,18 +1157,18 @@ async function resolveSectionNodeId(
     return nodeId;
   }
   const result = await page.evaluate(
-    ({ map, sectionType }: { map: any; sectionType: string }) => {
+    ({ map, sectionType, tag }: { map: any; sectionType: string; tag: string }) => {
       const nodes: any[] = map
         .getNodesByType(sectionType)
-        .filter((n: any) => n.state === 'available');
+        .filter((n: any) => n.state === 'available' && n.tag === tag);
       return nodes.length ? nodes[Math.floor(Math.random() * nodes.length)].id as string : null;
     },
-    { map: mapHandle, sectionType },
+    { map: mapHandle, sectionType, tag },
   );
 
   if (!result) {
     const label = sectionType === 'general admission' ? 'general admission section' : 'section';
-    throw new Error(`No available ${label} found on the map`);
+    throw new Error(`No available ${label} found on the map with tag "${tag}"`);
   }
   return result;
 }
@@ -1184,6 +1185,7 @@ async function resolveSeatNodeId(
   row: string | undefined,
   seat: string | number | undefined,
   tag: string | undefined,
+  state: string = 'available',
 ): Promise<string> {
   // All three provided → construct ID and verify it exists on the map.
   if (section !== undefined && row !== undefined && seat !== undefined) {
@@ -1197,7 +1199,7 @@ async function resolveSeatNodeId(
     return nodeId;
   }
   const result = await page.evaluate(
-    ({ map, section, row, tag }: { map: any; section?: string; row?: string; tag?: string }) => {
+    ({ map, section, row, tag, state }: { map: any; section?: string; row?: string; tag?: string; state: string }) => {
       const prefix = section !== undefined
         ? row !== undefined
           ? `S_${section}-${row}-`
@@ -1207,13 +1209,13 @@ async function resolveSeatNodeId(
       const nodes: any[] = map
         .getNodesByType('seat')
         .filter((n: any) =>
-          n.state === 'available' &&
+          n.state === state &&
           (!tag || n.tag === tag) &&
           (!prefix || (n.id as string).startsWith(prefix)),
         );
       return nodes.length ? nodes[Math.floor(Math.random() * nodes.length)].id as string : null;
     },
-    { map: mapHandle, section, row, tag },
+    { map: mapHandle, section, row, tag, state },
   );
 
   if (!result) {
@@ -1223,7 +1225,7 @@ async function resolveSeatNodeId(
       tag ? `tag "${tag}"` : null,
     ].filter(Boolean);
     const scope = parts.length ? parts.join(', ') : 'the map';
-    throw new Error(`No available seat found in ${scope}`);
+    throw new Error(`No ${state} seat found in ${scope}`);
   }
   return result;
 }
