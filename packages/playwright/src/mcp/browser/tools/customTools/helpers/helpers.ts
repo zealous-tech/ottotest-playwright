@@ -1210,7 +1210,7 @@ async function resolveSeatNodeId(
         .getNodesByType('seat')
         .filter((n: any) =>
           n.state === state &&
-          (!tag || n.tag === tag) &&
+          (!tag || (tag === 'filtered' ? (n.tag as string).startsWith('filtered') : tag === 'non-filtered' ? !(n.tag as string).startsWith('filtered') : n.tag === tag)) &&
           (!prefix || (n.id as string).startsWith(prefix)),
         );
       return nodes.length ? nodes[Math.floor(Math.random() * nodes.length)].id as string : null;

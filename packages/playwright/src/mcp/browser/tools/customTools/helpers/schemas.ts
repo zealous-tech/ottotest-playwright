@@ -527,8 +527,6 @@ const seatTagEnum = z.enum([
   'filtered',
 ]);
 
-const seatInputTagEnum = seatTagEnum.exclude(['filtered']);
-
 const seatStateEnum = z.enum([
   'available',
   'unavailable',
@@ -553,7 +551,7 @@ const seatSchema = z.object({
     .string()
     .optional()
     .describe('Seat number within the row (e.g. "14").'),
-  tag: seatInputTagEnum
+  tag: z.enum([...seatTagEnum.options, 'non-filtered'])
     .optional()
     .describe(
       'Filter available seats by tag/type. Applied in all random-selection modes (when seat is not fully specified). Ignored when section+row+seat are all supplied.',
