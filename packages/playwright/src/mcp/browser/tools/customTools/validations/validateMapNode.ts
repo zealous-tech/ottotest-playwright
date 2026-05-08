@@ -224,7 +224,7 @@ export const validate_seat_section_on_map = defineTabTool({
 
         const isFilteredWildcard = key === 'tag' && param.value === 'filtered';
         const matches = isFilteredWildcard
-          ? typeof actual === 'string' && actual.startsWith('filtered')
+          ? typeof actual === 'string' && !actual.startsWith('filtered')
           : actual === param.value;
 
         allChecks.push({
