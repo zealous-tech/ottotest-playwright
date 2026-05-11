@@ -28,6 +28,7 @@ export const hover_map_seat = defineTabTool({
       params.row,
       params.seat,
       params.tag,
+      params.state,
     );
 
     const [sec, row, seat] = nodeId.replace(/^S_/, '').split('-');
