@@ -581,6 +581,20 @@ function normalizeValue(value: string): string {
   return value.replace(/\s+/g, '').toLowerCase();
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function isHexColorInRange(actual: string, from: string, to: string): boolean {
+  const [ar, ag, ab] = hexToRgb(actual);
+  const [fr, fg, fb] = hexToRgb(from);
+  const [tr, tg, tb] = hexToRgb(to);
+  return ar >= Math.min(fr, tr) && ar <= Math.max(fr, tr)
+      && ag >= Math.min(fg, tg) && ag <= Math.max(fg, tg)
+      && ab >= Math.min(fb, tb) && ab <= Math.max(fb, tb);
+}
+
 export {
   ELEMENT_ATTACHED_TIMEOUT,
   getTimeout,
@@ -601,4 +615,6 @@ export {
   stringToRegExp,
   convertStringToRegExp,
   normalizeValue,
+  hexToRgb,
+  isHexColorInRange,
 };

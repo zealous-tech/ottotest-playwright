@@ -27,6 +27,7 @@ import {
   validate_tab_exist,
   default_validation,
   validate_icon,
+  validate_seat_section_on_map,
 } from './validations';
 import {
   get_computed_styles,
@@ -81,4 +82,5 @@ export default [
   hover_map_section,
   select_map_seat,
   hover_map_seat,
+  validate_seat_section_on_map,
 ];

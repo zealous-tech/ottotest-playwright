@@ -18,7 +18,7 @@ export const select_map_section = defineTabTool({
     response.setIncludeSnapshot();
     const page = tab.page;
     const mapHandle = await getMapHandle(page, params.mapSelector, params.containerSelector);
-    const nodeId = await resolveSectionNodeId(page, mapHandle, params.section, params.sectionType);
+    const nodeId = await resolveSectionNodeId(page, mapHandle, params.section, params.sectionType, params.tag);
     const section = nodeId.replace(/^S_/, '');
 
     response.addTextResult(JSON.stringify({ section }));
