@@ -562,7 +562,7 @@ type FrameResult = {
 
 async function checkTextExistenceInAllFrames(
   page: any,
-  text: string,
+  text: string | string[],
   matchType: MatchType = 'contains',
   timeout: number = ELEMENT_ATTACHED_TIMEOUT
 ): Promise<FrameResult[]> {
@@ -571,10 +571,20 @@ async function checkTextExistenceInAllFrames(
   const allChecks: Promise<FrameResult>[] = [];
 
   const createLocator = (ctx: any) => {
-    let locatorText: string | RegExp = text;
+    let locatorText: string | RegExp;
 
-    if (matchType === 'contains' && text.startsWith('/') && text.endsWith('/i'))
-      locatorText = new RegExp(text.slice(1, -2), 'i'); // remove slashes and keep "i"
+    if (Array.isArray(text)) {
+      if (matchType === 'contains' || matchType === 'not-contains') {
+        const pattern = text.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        locatorText = new RegExp(pattern, 'i');
+      } else {
+        locatorText = text.join(' ');
+      }
+    } else {
+      locatorText = text;
+      if ((matchType === 'contains' || matchType === 'not-contains') && text.startsWith('/') && text.endsWith('/i'))
+        locatorText = new RegExp(text.slice(1, -2), 'i'); // remove slashes and keep "i"
+    }
 
     return matchType === 'exact'
       ? ctx.getByText(locatorText, { exact: true })
@@ -588,8 +598,21 @@ async function checkTextExistenceInAllFrames(
   ): Promise<FrameResult> => {
     try {
       if (matchType === 'not-contains') {
-        await expect(locator).toHaveCount(0, { timeout });
-        return { found: false, count: 0, frame, level };
+        let visibleCount = 0;
+        try {
+          await expect.poll(async () => {
+            const els = await locator.elementHandles();
+            let count = 0;
+            for (const el of els) {
+              if (await el.isVisible()) count++;
+            }
+            visibleCount = count;
+            return count;
+          }, { timeout }).toBe(0);
+          return { found: false, count: 0, frame, level };
+        } catch {
+          return { found: true, count: visibleCount, frame, level };
+        }
       }
 
       await expect

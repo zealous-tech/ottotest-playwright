@@ -313,7 +313,7 @@ const validateTextInWholePageSchema = z.object({
       'Human-readable element description used to obtain permission to interact with the element'
   ),
   expectedText: z.string().describe(
-      'Expected text value to validate in the element or whole page'
+      'Expected text value(s) to validate. Can be a single string or a JSON-stringified array of strings (e.g. "[\"foo\", \"bar\"]") — array values are combined with OR into a case-insensitive RegExp.'
   ),
   matchType: z.enum(['exact', 'contains', 'not-contains']).default('exact').describe(
       "Type of match: 'exact' checks exact match, 'contains' checks substring presence, 'not-contains' checks that text is NOT present."
