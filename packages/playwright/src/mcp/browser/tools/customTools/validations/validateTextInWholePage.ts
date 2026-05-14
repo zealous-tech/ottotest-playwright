@@ -28,11 +28,23 @@ export const validate_text_in_whole_page = defineTabTool({
     type: 'readOnly',
   },
   handle: async (tab, params, response) => {
-    const { element, expectedText, matchType } = validateTextInWholePageSchema.parse(params);
+    const { element, expectedText: rawExpectedText, matchType } = validateTextInWholePageSchema.parse(params);
+
+    const expectedText: string | string[] = (() => {
+      const trimmed = rawExpectedText.trim();
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed as string[];
+        } catch {}
+      }
+      return rawExpectedText;
+    })();
 
     await tab.waitForCompletion(async () => {
       // Get locator for whole page and generate locator string
       const locatorString = 'page.locator("body")';
+      const displayText = Array.isArray(expectedText) ? expectedText.join(' | ') : expectedText;
 
       // Helper function to create evidence command
       const createEvidenceCommand = () => JSON.stringify({
@@ -63,25 +75,25 @@ export const validate_text_in_whole_page = defineTabTool({
         if (matchType === 'exact' || matchType === 'contains') {
           if (actualCount > 0) {
             passed = true;
-            evidenceMessage = `The text "${expectedText}" appeared ${actualCount} time(s) on the page using ${matchType} matching in frame(s): ${foundFrames.join(', ')}.`;
+            evidenceMessage = `The text "${displayText}" appeared ${actualCount} time(s) on the page using ${matchType} matching in frame(s): ${foundFrames.join(', ')}.`;
           } else {
             passed = false;
-            evidenceMessage = `The text "${expectedText}" was not found on the page using ${matchType} matching.`;
+            evidenceMessage = `The text "${displayText}" was not found on the page using ${matchType} matching.`;
           }
         } else { // not-contains
           if (actualCount === 0) {
             passed = true;
-            evidenceMessage = `The text "${expectedText}" was correctly not found on the page using ${matchType} matching.`;
+            evidenceMessage = `The text "${displayText}" was correctly not found on the page using ${matchType} matching.`;
           } else {
             passed = false;
-            evidenceMessage = `The text "${expectedText}" was found ${actualCount} time(s) on the page using ${matchType} matching in frames: ${foundFrames.join(', ')} — it should not appear.`;
+            evidenceMessage = `The text "${displayText}" was found ${actualCount} time(s) on the page using ${matchType} matching in frames: ${foundFrames.join(', ')} — it should not appear.`;
           }
         }
 
       } catch (error) {
         passed = false;
         const errorMessage = error instanceof Error ? error.message : String(error);
-        evidenceMessage = `Failed to validate text "${expectedText}" on the page.`;
+        evidenceMessage = `Failed to validate text "${displayText}" on the page.`;
 
         console.log(`Failed to validate text in whole page for "${element}". Error: ${errorMessage}`);
       }
