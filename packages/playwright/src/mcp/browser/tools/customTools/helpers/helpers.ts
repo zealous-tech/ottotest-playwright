@@ -598,8 +598,21 @@ async function checkTextExistenceInAllFrames(
   ): Promise<FrameResult> => {
     try {
       if (matchType === 'not-contains') {
-        await expect(locator).toHaveCount(0, { timeout });
-        return { found: false, count: 0, frame, level };
+        let visibleCount = 0;
+        try {
+          await expect.poll(async () => {
+            const els = await locator.elementHandles();
+            let count = 0;
+            for (const el of els) {
+              if (await el.isVisible()) count++;
+            }
+            visibleCount = count;
+            return count;
+          }, { timeout }).toBe(0);
+          return { found: false, count: 0, frame, level };
+        } catch {
+          return { found: true, count: visibleCount, frame, level };
+        }
       }
 
       await expect
