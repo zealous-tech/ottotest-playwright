@@ -129,7 +129,15 @@ export const validate_response = defineTabTool({
         // Compare values if expected is provided
         let passed = true;
         if (check.expected !== undefined) {
-          const comparisonResult = compareValues(actualValue, check.expected, check.operator);
+          let expectedValue = check.expected;
+          if (typeof expectedValue === 'string') {
+            try {
+              const parsed = JSON.parse(expectedValue);
+              if (typeof parsed === 'object' && parsed !== null)
+                expectedValue = parsed;
+            } catch { /* keep original string */ }
+          }
+          const comparisonResult = compareValues(actualValue, expectedValue, check.operator);
           passed = comparisonResult.passed;
         }
 
