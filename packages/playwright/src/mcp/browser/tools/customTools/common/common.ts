@@ -51,27 +51,8 @@ export interface ValidationResult {
 }
 
 export interface ValidationPayload {
-  mode: 'data' | 'element';
-  ref?: string;
-  element?: string;
-  summary: {
-    total: number;
-    passed: number;
-    failed: number;
-    status: 'pass' | 'fail';
-    evidence: Array<{ command: string; message: string }>;
-  };
-  checks: Array<{
-    property: string;
-    operator: string;
-    expected: any;
-    actual: any;
-    result: 'pass' | 'fail';
-  }>;
-  result: 'pass' | 'fail';
-  jsCode: string;
-  dataPreview?: string;
-  expectedValue?: any;
-  actualValue?: any;
-  error?: string;
+  status: 'pass' | 'fail';
+  evidence: Array<{ command: string; message: string }> | string;
+  emptyValidation?: boolean;
+  resolvedLocator?: string;
 }

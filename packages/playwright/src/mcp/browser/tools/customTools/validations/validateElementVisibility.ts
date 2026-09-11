@@ -17,6 +17,7 @@ import { defineTabTool } from '../../tool';
 import { checkLocatorVisibilityInAllFrames } from '../helpers/helpers';
 import { getTimeout } from '../helpers/utils';
 import { validateElementVisibilitySchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_element_visibility = defineTabTool({
   capability: 'core',
@@ -74,14 +75,9 @@ export const validate_element_visibility = defineTabTool({
         message: evidenceMessage,
       }];
 
-      const payload = {
-        summary: {
-          total: 1,
-          passed: passed ? 1 : 0,
-          failed: passed ? 0 : 1,
-          status: passed ? 'pass' : 'fail',
-          evidence,
-        },
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence,
       };
       response.addTextResult(JSON.stringify(payload, null, 2));
     });

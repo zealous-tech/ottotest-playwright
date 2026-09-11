@@ -17,6 +17,7 @@ import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { getTimeout } from '../helpers/utils';
 import { validateTabExistSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_tab_exist = defineTabTool({
   capability: 'core',
@@ -130,7 +131,7 @@ export const validate_tab_exist = defineTabTool({
         // Determine final result based on matchType and isCurrent
         const currentMatch = isCurrent === undefined ? true : (isCurrent ? isCurrentTab : !isCurrentTab);
         const urlMatch = matchType === 'exist' ? isFound : !isFound;
-        const status = (urlMatch && currentMatch) ? 'pass' : 'fail';
+        const status: 'pass' | 'fail' = (urlMatch && currentMatch) ? 'pass' : 'fail';
 
         return { tabsWithInfo, currentTabUrl, foundTab, isFound, isCurrentTab, searchType, status };
       };
@@ -193,31 +194,9 @@ export const validate_tab_exist = defineTabTool({
         message: evidence
       }];
 
-      const payload = {
-        url,
-        title,
-        matchType,
-        exactMatch,
-        isCurrent,
-        currentTabUrl,
-        isCurrentTab,
-        foundTab: foundTab ? {
-          index: (foundTab as any).index,
-          header: (foundTab as any).header,
-          url: (foundTab as any).url
-        } : null,
-        summary: {
-          total: 1,
-          passed: status === 'pass' ? 1 : 0,
-          failed: status === 'pass' ? 0 : 1,
-          status,
-          evidence: evidenceArray,
-        },
-        allTabs: tabsWithInfo.map((t: any) => ({
-          index: (t as any).index,
-          header: (t as any).header,
-          url: (t as any).url
-        })),
+      const payload: ValidationPayload = {
+        status: status,
+        evidence: evidenceArray,
       };
       console.log('Validate tab exist:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
@@ -241,18 +220,9 @@ export const validate_tab_exist = defineTabTool({
         message: errorMessage
       }];
 
-      const errorPayload = {
-        url,
-        title,
-        exactMatch,
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          status: 'fail',
-          evidence: errorEvidence,
-        },
-        error: error instanceof Error ? error.message : String(error),
+      const errorPayload: ValidationPayload = {
+        status: 'fail',
+        evidence: errorEvidence,
       };
       console.error('Validate tab exist error:', errorPayload);
       response.addTextResult(JSON.stringify(errorPayload, null, 2));

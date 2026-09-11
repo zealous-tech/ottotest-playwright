@@ -979,46 +979,13 @@ function buildValidationPayload(
     error?: string;
   }
 ): ValidationPayload {
-  const { isPass, expectedValue, actualValue } = validationResult;
+  const { isPass } = validationResult;
   const status = isPass ? 'pass' : 'fail';
-  const passed = isPass ? 1 : 0;
-  const failed = isPass ? 0 : 1;
 
-  const payload: ValidationPayload = {
-    mode,
-    summary: {
-      total: 1,
-      passed,
-      failed,
-      status,
-      evidence,
-    },
-    checks: [{
-      property: mode === 'data' ? 'data_validation' : 'validation',
-      operator: 'equals',
-      expected: expectedValue !== undefined ? expectedValue : 'pass',
-      actual: actualValue !== undefined ? actualValue : status,
-      result: status,
-    }],
-    result: status,
-    jsCode,
+  return {
+    status,
+    evidence,
   };
-
-  // Add optional fields
-  if (options?.ref)
-    payload.ref = options.ref;
-  if (options?.element)
-    payload.element = options.element;
-  if (options?.dataPreview)
-    payload.dataPreview = options.dataPreview;
-  if (options?.error)
-    payload.error = options.error;
-  if (expectedValue !== undefined)
-    payload.expectedValue = expectedValue;
-  if (actualValue !== undefined)
-    payload.actualValue = actualValue;
-
-  return payload;
 }
 
 /**
@@ -1034,33 +1001,10 @@ function buildValidationErrorPayload(
     element?: string;
   }
 ): ValidationPayload {
-  const payload: ValidationPayload = {
-    mode,
-    summary: {
-      total: 1,
-      passed: 0,
-      failed: 1,
-      status: 'fail',
-      evidence,
-    },
-    checks: [{
-      property: mode === 'data' ? 'data_validation' : 'javascript_execution',
-      operator: 'execute',
-      expected: 'pass',
-      actual: errorMessage,
-      result: 'fail',
-    }],
-    result: 'fail',
-    jsCode,
-    error: errorMessage,
+  return {
+    status: 'fail',
+    evidence,
   };
-
-  if (options?.ref)
-    payload.ref = options.ref;
-  if (options?.element)
-    payload.element = options.element;
-
-  return payload;
 }
 
 /**

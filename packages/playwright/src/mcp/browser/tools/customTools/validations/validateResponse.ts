@@ -17,6 +17,7 @@ import * as jp from 'jsonpath';
 import { defineTabTool } from '../../tool';
 import { compareValues, evaluateWildcardPath } from '../helpers/helpers';
 import { validateResponseSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_response = defineTabTool({
   capability: 'core',
@@ -196,15 +197,9 @@ export const validate_response = defineTabTool({
       message: evidenceMessage
     }];
 
-    const payload = {
-      summary: {
-        total: results.length,
-        passed: passedCount,
-        failed: results.length - passedCount,
-        status,
-        evidence: evidenceArray,
-      },
-      checks: results,
+    const payload: ValidationPayload = {
+      status,
+      evidence: evidenceArray,
     };
 
     console.log('Validate response JSON path:', payload);

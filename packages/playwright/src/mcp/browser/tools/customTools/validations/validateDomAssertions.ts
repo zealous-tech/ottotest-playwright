@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import { expect } from '@zealous-tech/playwright/test';
+import { type ValidationPayload } from '../common/common';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString, getAssertionEvidence } from '../helpers/helpers';
 import { getTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue, serializeForEvidence } from '../helpers/utils';
@@ -659,18 +660,9 @@ export const validate_dom_assertions = defineTabTool({
 
       }
 
-      // Generate payload
-      const payload = {
-        ref,
-        element,
-        summary: {
-          total: results.length,
-          passed: passedCount,
-          failed: failedCount,
-          status: passedCount === results.length ? 'pass' : 'fail',
-          evidence,
-        },
-        checks: results,
+      const payload: ValidationPayload = {
+        status: passedCount === results.length ? 'pass' : 'fail',
+        evidence,
       };
 
       console.log('Validate DOM Assertions:');

@@ -25,6 +25,7 @@ import { z } from 'playwright-core/lib/mcpBundle';
 import { expect } from '@zealous-tech/playwright/test';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString } from '../helpers/helpers';
+import { type ValidationPayload } from '../common/common';
 import {
   lookupNotification,
   notificationLocatorExpressions,
@@ -387,28 +388,11 @@ function createErrorPayload(params: {
     evidence: Array<{ command: string; message: string }>;
     error?: string;
     resolvedLocator?: string;
-}) {
+}): ValidationPayload {
     return {
-        ref: params.ref,
-        element: params.element,
-        ...(params.expectedIcon && { expectedIcon: params.expectedIcon }),
+        status: 'fail',
+        evidence: params.evidence,
         ...(params.resolvedLocator ? { resolvedLocator: params.resolvedLocator } : {}),
-        actualIcon: params.actualIcon || null,
-        summary: {
-            total: 1,
-            passed: 0,
-            failed: 1,
-            status: 'fail' as const,
-            evidence: params.evidence,
-        },
-        checks: [{
-            property: 'icon-validation',
-            operator: 'equals',
-            expected: params.expectedIcon || null,
-            actual: params.actualIcon || null,
-            result: 'fail' as const,
-        }],
-        ...(params.error && { error: params.error }),
     };
 }
 
@@ -443,38 +427,11 @@ function createValidationPayload(params: {
     comparisonDetails: string[];
     evidence: Array<{ command: string; message: string }>;
     resolvedLocator?: string;
-}) {
+}): ValidationPayload {
     return {
-        ref: params.ref,
-        element: params.element,
-        expectedIcon: params.expectedIcon,
+        status: params.passed ? 'pass' : 'fail',
+        evidence: params.evidence,
         ...(params.resolvedLocator ? { resolvedLocator: params.resolvedLocator } : {}),
-        actualIcon: {
-            iconType: params.actualIcon.iconType,
-            iconData: summarizeIconDataForResponse(
-                params.actualIcon.iconType,
-                params.actualIcon.iconData.length > 200 && !isBase64IconData(params.actualIcon.iconType, params.actualIcon.iconData)
-                    ? params.actualIcon.iconData.substring(0, 200) + '...'
-                    : params.actualIcon.iconData,
-            ),
-            colors: params.actualIcon.colors,
-            imageLoaded: params.actualIcon.imageLoaded,
-        },
-        summary: {
-            total: 1,
-            passed: params.passed ? 1 : 0,
-            failed: params.passed ? 0 : 1,
-            status: params.passed ? 'pass' as const : 'fail' as const,
-            evidence: params.evidence,
-        },
-        checks: [{
-            property: 'icon-validation',
-            operator: 'equals',
-            expected: params.expectedIcon,
-            actual: params.actualIcon,
-            result: params.passed ? 'pass' as const : 'fail' as const,
-            comparisonDetails: params.comparisonDetails,
-        }],
     };
 }
 

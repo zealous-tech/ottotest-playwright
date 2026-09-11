@@ -24,6 +24,7 @@ import {
 } from '../helpers/notificationBuffer';
 import { getTimeout } from '../helpers/utils';
 import { validateNotificationSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 type CapturedNotification = { text: string; role: string; ts: number; locator?: string };
 
@@ -299,51 +300,14 @@ export const validate_notification = defineTabTool({
         },
       ];
 
-      const payload = {
-        element,
-        expectedText,
-        matchType,
-        withinMs,
-        ...(locator ? { locator } : {}),
-        // The real locator to persist/reuse: the observer-captured selector when available (verified
-        // against the live DOM at capture time), otherwise the caller's best-effort locator. The
-        // bridge/hub reads this to write a genuine locator into the cached tool call.
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence,
+        ...(emptyValidation ? { emptyValidation } : {}),
         ...(resolvedLocator ? { resolvedLocator } : {}),
-        locatorSource: capturedLocatorExpr ? 'observer-captured' : (locator ? 'model-provided' : 'none'),
-        observerInstalled,
-        summary: {
-          total: 1,
-          passed: passed ? 1 : 0,
-          failed: passed ? 0 : 1,
-          status: passed ? 'pass' : 'fail',
-          // When true the check failed because NO notification appeared at all (nothing to assert
-          // against), as opposed to a notification appearing with mismatched text. The bridge uses
-          // this to record the validation as an empty (un-automated) one rather than a real failure.
-          emptyValidation,
-          // True when a notification appeared but the caller's concrete locator did not match the
-          // observer-captured selector (a genuine failure, not an empty validation).
-          locatorMismatch: providedLocatorMismatch,
-          evidence,
-        },
-        checks: [
-          {
-            property: 'notification-presence',
-            operator: matchType,
-            expected: matchType === 'not-contains' ? 'not-present' : 'present',
-            actual: bufferPresent || liveCount > 0 ? 'present' : 'not-present',
-            capturedCount: bufferHits.length,
-            liveCount,
-            capturedNotifications: uniqueCaptured.map(n => n.text),
-            emptyValidation,
-            locatorMismatch: providedLocatorMismatch,
-            result: passed ? 'pass' : 'fail',
-          },
-        ],
-        scope: 'transient-notification-buffer+live-dom',
-        searchMethod: 'ottoNotificationBuffer',
       };
 
-      console.log('Validate notification:', payload);
+      console.log('Validate Notification:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
     });
   },

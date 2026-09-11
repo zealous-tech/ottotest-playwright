@@ -18,6 +18,7 @@ import { defineTabTool } from '../../tool';
 import { generateLocatorString } from '../helpers/helpers';
 import { getTimeout } from '../helpers/utils';
 import { validateElementOrderSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_element_order = defineTabTool({
   capability: 'core',
@@ -216,24 +217,9 @@ export const validate_element_order = defineTabTool({
         message: evidenceMessage
       }];
 
-      // Generate final payload matching the structure of other validation tools
-      const payload = {
-        elements: elements.map(e => ({ element: e.element, ref: e.ref })),
-        summary: {
-          total: elements.length,
-          passed: passed ? elements.length : 0,
-          failed: passed ? 0 : elements.length,
-          status: passed ? 'pass' : 'fail',
-          evidence,
-        },
-        checks,
-        elementCenters: elementCenters.map(ec => ({
-          element: ec.element,
-          x: Math.round(ec.x),
-          y: Math.round(ec.y),
-        })),
-        scope: 'multiple-elements',
-        comparisonMethod: 'reading-order',
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence,
       };
 
       console.log('Validate element order:', payload);

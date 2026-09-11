@@ -15,6 +15,7 @@
  */
 import { defineTabTool } from '../../tool';
 import { checkAlertInSnapshotSchema } from '../helpers/schemas';
+import { ValidationPayload } from '../common/common';
 
 export const validate_alert_in_snapshot = defineTabTool({
   capability: 'core',
@@ -86,32 +87,19 @@ export const validate_alert_in_snapshot = defineTabTool({
 
       // Generate evidence as array of objects
       const evidence = [{
-        command: {
+        command: JSON.stringify({
           toolName: 'validate_alert_in_snapshot',
           arguments: {
             expectedText: hasText || null,
             matchType: matchType
           }
-        },
+        }),
         message: evidenceMessage
       }];
 
-      const payload = {
-        element,
-        matchType,
-        hasText,
-        alertExists,
-        alertText,
-        textCheckPassed,
-        textCheckMessage,
-        summary: {
-          status: passed ? 'pass' : 'fail',
-          evidence,
-        },
-        snapshot: {
-          containsAlert: alertExists,
-          snapshotLength: tabSnapshot.ariaSnapshot.length
-        }
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence,
       };
 
       const resultString = JSON.stringify(payload, null, 2);
@@ -121,26 +109,16 @@ export const validate_alert_in_snapshot = defineTabTool({
       const errorMessage = `Failed to check alert dialog in snapshot.`;
       console.log(`Failed to check alert dialog in snapshot. Error: ${error instanceof Error ? error.message : String(error)}`);
       const errorEvidence = [{
-        command: {
+        command: JSON.stringify({
           toolName: 'validate_alert_in_snapshot',
           expectedText: hasText || null,
           matchType: matchType
-        },
+        }),
         message: errorMessage
       }];
-      const errorPayload = {
-        element,
-        matchType,
-        hasText,
-        alertExists: false,
-        alertText: null,
-        textCheckPassed: false,
-        textCheckMessage: '',
-        summary: {
-          status: 'error',
-          evidence: errorEvidence
-        },
-        error: error instanceof Error ? error.message : String(error)
+      const errorPayload: ValidationPayload = {
+        status: 'fail', // Map 'error' to 'fail' to match ValidationPayload
+        evidence: errorEvidence
       };
 
       console.error('Check alert in snapshot error:', errorPayload);

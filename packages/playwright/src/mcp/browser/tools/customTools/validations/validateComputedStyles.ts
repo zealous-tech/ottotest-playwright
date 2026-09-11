@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import { expect } from '@zealous-tech/playwright/test';
+import { type ValidationPayload } from '../common/common';
 import { defineTabTool } from '../../tool';
 import { getAllComputedStylesDirect, generateLocatorString } from '../helpers/helpers';
 import {
@@ -112,32 +113,13 @@ function styleEvidenceMessage(result: StyleCheckResult, source: string = ''): st
  * Build the failure payload used when no styles could be read at all (element/notification missing).
  */
 function buildUnavailablePayload(params: {
-  ref: string;
-  element: string;
-  notificationText?: string;
   resolvedLocator?: string;
-  checks: StyleCheck[];
   evidence: Array<{ command: string; message: string }>;
-}) {
+}): ValidationPayload {
   return {
-    ref: params.ref,
-    element: params.element,
-    ...(params.notificationText ? { notificationText: params.notificationText } : {}),
     ...(params.resolvedLocator ? { resolvedLocator: params.resolvedLocator } : {}),
-    summary: {
-      total: params.checks.length,
-      passed: 0,
-      failed: params.checks.length,
-      status: 'fail' as const,
-      evidence: params.evidence,
-    },
-    checks: params.checks.map(c => ({
-      style: c.name,
-      operator: c.operator,
-      expected: c.expected,
-      actual: undefined,
-      result: 'fail' as const,
-    })),
+    status: 'fail',
+    evidence: params.evidence,
   };
 }
 
@@ -200,11 +182,7 @@ export const validate_computed_styles = defineTabTool({
             message: `CSS Property "${check.name}" validation failed: ${unavailableReason}`,
           }));
           const payload = buildUnavailablePayload({
-            ref: ref || NOTIFICATION_BUFFER_REF,
-            element,
-            notificationText,
             resolvedLocator,
-            checks,
             evidence,
           });
           console.log('Validate Computed Styles (notification styles unavailable):', payload);
@@ -219,20 +197,10 @@ export const validate_computed_styles = defineTabTool({
           message: styleEvidenceMessage(result, ' (captured when the notification appeared)'),
         }));
 
-        const payload = {
-          ref: ref || NOTIFICATION_BUFFER_REF,
-          element,
-          notificationText,
+        const payload: ValidationPayload = {
           ...(resolvedLocator ? { resolvedLocator } : {}),
-          summary: {
-            total: results.length,
-            passed: passedCount,
-            failed: results.length - passedCount,
-            status: passedCount === results.length ? 'pass' : 'fail',
-            evidence,
-          },
-          checks: results,
-          source: 'transient-notification-buffer',
+          status: passedCount === results.length ? 'pass' : 'fail',
+          evidence,
         };
 
         console.log('Validate Computed Styles (notification buffer):', payload);
@@ -245,7 +213,7 @@ export const validate_computed_styles = defineTabTool({
           command: createEvidenceCommand('', check.name, check.operator, check.expected),
           message: `CSS Property "${check.name}" validation failed: provide "ref" for a page element, or "notificationText" with a Playwright locator in "ref" for a toast/notification`,
         }));
-        const payload = buildUnavailablePayload({ ref: '', element, checks, evidence });
+        const payload = buildUnavailablePayload({ evidence });
         console.log('Validate Computed Styles (no target):', payload);
         response.addTextResult(JSON.stringify(payload, null, 2));
         return;
@@ -269,23 +237,9 @@ export const validate_computed_styles = defineTabTool({
           message: `CSS Property "${check.name}" validation failed: UI element not found`
         }));
 
-        const payload = {
-          ref,
-          element,
-          summary: {
-            total: checks.length,
-            passed: 0,
-            failed: checks.length,
-            status: 'fail' as const,
-            evidence,
-          },
-          checks: checks.map(c => ({
-            style: c.name,
-            operator: c.operator,
-            expected: c.expected,
-            actual: undefined,
-            result: 'fail' as const,
-          })),
+        const payload: ValidationPayload = {
+          status: 'fail',
+          evidence,
         };
 
         console.log('Validate Computed Styles (element not found):', payload);
@@ -317,17 +271,9 @@ export const validate_computed_styles = defineTabTool({
       }));
 
       // 3) Answer
-      const payload = {
-        ref,
-        element,
-        summary: {
-          total: results.length,
-          passed: passedCount,
-          failed: results.length - passedCount,
-          status: passedCount === results.length ? 'pass' : 'fail',
-          evidence,
-        },
-        checks: results,
+      const payload: ValidationPayload = {
+        status: passedCount === results.length ? 'pass' : 'fail',
+        evidence,
       };
 
       console.log('Validate Computed Styles:', payload);
