@@ -18,6 +18,7 @@ import { defineTabTool } from '../../tool';
 import { generateLocatorString } from '../helpers/helpers';
 import { getTimeout } from '../helpers/utils';
 import { validateElementPositionSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_element_position = defineTabTool({
   capability: 'core',
@@ -252,33 +253,9 @@ export const validate_element_position = defineTabTool({
         message: evidence
       }];
 
-      // Generate final payload matching the structure of other validation tools
-      const payload = {
-        element1,
-        ref1,
-        element2,
-        ref2,
-        relationship,
-        summary: {
-          total: 1,
-          passed: passed ? 1 : 0,
-          failed: passed ? 0 : 1,
-          status: passed ? 'pass' : 'fail',
-          evidence: evidenceArray,
-        },
-        checks: [{
-          property: 'position-relationship',
-          operator: 'equals',
-          expected: relationship,
-          actual: actualRelationship || 'unknown',
-          result: passed ? 'pass' : 'fail',
-          horizontalDifference: Math.round(horizontalDiff),
-          verticalDifference: Math.round(verticalDiff),
-          element1Center: { x: Math.round(center1.x), y: Math.round(center1.y) },
-          element2Center: { x: Math.round(center2.x), y: Math.round(center2.y) },
-        }],
-        scope: 'two-elements',
-        comparisonMethod: 'bounding-box-centers',
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence: evidenceArray,
       };
 
       console.log('Validate element position:', payload);

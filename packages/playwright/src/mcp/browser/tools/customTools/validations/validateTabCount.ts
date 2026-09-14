@@ -15,6 +15,7 @@
  */
 import { defineTabTool } from '../../tool';
 import { validateTabCountSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 function compare(actual: number, operator: string, expected: number): boolean {
   switch (operator) {
@@ -70,22 +71,9 @@ export const validate_tab_count = defineTabTool({
         message: evidence
       }];
 
-      const payload = {
-        expectedCount,
-        operator,
-        actualCount,
-        summary: {
-          total: 1,
-          passed: status === 'pass' ? 1 : 0,
-          failed: status === 'pass' ? 0 : 1,
-          status,
-          evidence: evidenceArray,
-        },
-        allTabs: tabsWithInfo.map((t: any) => ({
-          index: t.index,
-          header: t.header,
-          url: t.url
-        })),
+      const payload: ValidationPayload = {
+        status: status,
+        evidence: evidenceArray,
       };
       console.log('Validate tab count:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
@@ -102,17 +90,9 @@ export const validate_tab_count = defineTabTool({
         message: errorMessage
       }];
 
-      const errorPayload = {
-        expectedCount,
-        operator,
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          status: 'fail',
-          evidence: errorEvidence,
-        },
-        error: error instanceof Error ? error.message : String(error),
+      const errorPayload: ValidationPayload = {
+        status: 'fail',
+        evidence: errorEvidence,
       };
       console.error('Validate tab count error:', errorPayload);
       response.addTextResult(JSON.stringify(errorPayload, null, 2));

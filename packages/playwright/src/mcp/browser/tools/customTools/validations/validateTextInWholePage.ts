@@ -17,6 +17,7 @@ import { defineTabTool } from '../../tool';
 import { checkTextExistenceInAllFrames } from '../helpers/helpers';
 import { getTimeout } from '../helpers/utils';
 import { validateTextInWholePageSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_text_in_whole_page = defineTabTool({
   capability: 'core',
@@ -107,28 +108,9 @@ export const validate_text_in_whole_page = defineTabTool({
       }];
 
       // Generate final payload
-      const payload = {
-        element,
-        expectedText,
-        matchType,
-        summary: {
-          total: 1,
-          passed: passed ? 1 : 0,
-          failed: passed ? 0 : 1,
-          status: passed ? 'pass' : 'fail',
-          evidence,
-        },
-        checks: [{
-          property: 'text-presence',
-          operator: matchType,
-          expected: matchType === 'not-contains' ? 'not-present' : 'present-once',
-          actual: actualCount > 0 ? `present-${actualCount}-times` : 'not-present',
-          actualCount: actualCount,
-          foundFrames: foundFrames,
-          result: passed ? 'pass' : 'fail',
-        }],
-        scope: 'whole-page-all-frames',
-        searchMethod: 'checkTextExistenceInAllFrames',
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence,
       };
 
       console.log('Validate text in whole page:', payload);

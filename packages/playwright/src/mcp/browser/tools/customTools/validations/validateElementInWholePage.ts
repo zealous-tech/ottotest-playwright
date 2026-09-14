@@ -20,6 +20,7 @@ import {
 } from '../helpers/helpers';
 import { getTimeout } from '../helpers/utils';
 import { validateElementInWholePageSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 
 export const validate_element_in_whole_page = defineTabTool({
   capability: 'core',
@@ -94,27 +95,9 @@ export const validate_element_in_whole_page = defineTabTool({
       }];
 
       // Generate final payload
-      const payload = {
-        element,
-        role,
-        accessibleName,
-        matchType,
-        summary: {
-          total: 1,
-          passed: passed ? 1 : 0,
-          failed: passed ? 0 : 1,
-          status: passed ? 'pass' : 'fail',
-          evidence,
-        },
-        checks: [{
-          property: 'element-presence',
-          operator: matchType,
-          expected: matchType === 'not-exist' ? 'not-present' : 'present',
-          actual: found ? 'present' : 'not-present',
-          result: passed ? 'pass' : 'fail',
-        }],
-        scope: 'whole-page-all-frames',
-        searchMethod: locator ? 'checkLocatorVisibilityInAllFrames' : 'checkElementVisibilityInAllFrames',
+      const payload: ValidationPayload = {
+        status: passed ? 'pass' : 'fail',
+        evidence,
       };
 
       console.log('Validate element in whole page:', payload);

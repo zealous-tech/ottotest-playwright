@@ -5,6 +5,7 @@ import {
   resolveSectionNodeId,
 } from '../helpers/helpers';
 import { validateMapNodeSchema } from '../helpers/schemas';
+import { type ValidationPayload } from '../common/common';
 import { isHexColorInRange } from '../helpers/utils';
 
 /**
@@ -262,14 +263,11 @@ export const validate_seat_section_on_map = defineTabTool({
         : `Validation failed: ${c.property} expected "${c.expected}" got "${c.actual}" (${targetLabel(c.target)})`,
     }));
 
-    response.addTextResult(JSON.stringify({
-      summary: {
-        total:  allChecks.length,
-        passed: matched.length,
-        failed: failed.length + errorEvidence.length,
-        status,
-        evidence: [...checksEvidence, ...errorEvidence],
-      },
-    }, null, 2));
+    const payload: ValidationPayload = {
+      status,
+      evidence: [...checksEvidence, ...errorEvidence],
+    };
+
+    response.addTextResult(JSON.stringify(payload, null, 2));
   },
 });
