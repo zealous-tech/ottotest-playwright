@@ -198,6 +198,56 @@ export const validate_tab_exist = defineTabTool({
         status: status,
         evidence: evidenceArray,
       };
+
+      let codeStr = '';
+      
+      let urlCheckStr = '';
+      if (exactMatch) {
+        urlCheckStr = `pUrl === ${JSON.stringify(url)}`;
+      } else if (isUrlRegex) {
+        urlCheckStr = `new RegExp(${JSON.stringify(url)}).test(pUrl)`;
+      } else {
+        urlCheckStr = `(pUrl.includes(${JSON.stringify(url)}) || ${JSON.stringify(url)}.includes(pUrl))`;
+      }
+
+      let titleCheckStr = '';
+      if (!title) {
+        titleCheckStr = `true`; // if title is missing, it always matches
+      } else {
+        if (exactMatch) {
+          titleCheckStr = `pTitle === ${JSON.stringify(title)}`;
+        } else if (isTitleRegex) {
+          titleCheckStr = `new RegExp(${JSON.stringify(title)}).test(pTitle)`;
+        } else {
+          titleCheckStr = `(pTitle.includes(${JSON.stringify(title)}) || ${JSON.stringify(title)}.includes(pTitle))`;
+        }
+      }
+
+      let currentTabCheckStr = '';
+      if (isCurrent !== undefined) {
+        currentTabCheckStr = `
+       if (${isCurrent} && p !== page) found = false;
+       if (!${isCurrent} && p === page) found = false;`;
+      }
+
+      codeStr += `
+await expect.poll(async () => {
+  let found = false;
+  const pages = page.context().pages();
+  for (const p of pages) {
+    const pUrl = p.url();
+    const pTitle = await p.title().catch(() => '');
+    const urlMatches = ${urlCheckStr};
+    const titleMatches = ${titleCheckStr};
+    if (urlMatches && titleMatches) {
+       found = true;${currentTabCheckStr}
+    }
+  }
+  return found;
+}).toBe(${matchType === 'exist' ? 'true' : 'false'});
+`;
+      response.addCode(codeStr.trim());
+
       console.log('Validate tab exist:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
 

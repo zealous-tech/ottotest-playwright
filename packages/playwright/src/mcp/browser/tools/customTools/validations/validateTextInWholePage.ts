@@ -113,6 +113,32 @@ export const validate_text_in_whole_page = defineTabTool({
         evidence,
       };
 
+      let codeStr = '';
+      const textArr = Array.isArray(expectedText) ? expectedText : [expectedText];
+      for (const t of textArr) {
+          if (matchType === 'not-contains') {
+              codeStr += `
+await expect.poll(async () => {
+    for (const frame of page.frames()) {
+       if (await frame.getByText(${JSON.stringify(t)}, { exact: false }).isVisible()) return true;
+    }
+    return false;
+}).toBe(false);
+`;
+          } else {
+              const exactOpt = matchType === 'exact' ? 'true' : 'false';
+              codeStr += `
+await expect.poll(async () => {
+    for (const frame of page.frames()) {
+       if (await frame.getByText(${JSON.stringify(t)}, { exact: ${exactOpt} }).isVisible()) return true;
+    }
+    return false;
+}).toBe(true);
+`;
+          }
+      }
+      response.addCode(codeStr.trim());
+
       console.log('Validate text in whole page:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
     });

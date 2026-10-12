@@ -64,7 +64,13 @@ export const make_request = defineTabTool({
         }
       };
     }
-
+    let codeStr = `
+{
+  const { execSync } = require('child_process');
+  execSync(${JSON.stringify(command)});
+}
+`;
+    response.addCode(codeStr.trim());
     response.addTextResult(JSON.stringify(toolResult, null, 2));
   },
 });

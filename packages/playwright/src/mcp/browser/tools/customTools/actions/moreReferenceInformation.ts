@@ -56,7 +56,7 @@ export const more_reference_information = defineTabTool({
     if (Object.keys(errors).length)
       payload.errors = errors;
 
-    response.addCode(`// more_reference_information for ${references.length} reference(s)`);
+    response.addCode(`// Retrieved ${references.length} reference(s)`);
     response.addTextResult(JSON.stringify(payload, null, 2));
   },
 });

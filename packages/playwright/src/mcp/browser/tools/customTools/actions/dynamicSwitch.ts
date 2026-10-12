@@ -63,7 +63,43 @@ export const dynamic_switch = defineTabTool({
       },
       actions: chosenTool && chosenTool.readyForCaching ? [{ type: 'invoke_tool', toolName: chosenTool.toolName, params: chosenTool.params }] : []
     };
+    
+    // Generate Playwright code for export
+    const genNested = async (toolName: string, params: any): Promise<string> => {
+      if (toolName === 'browser_click' && params && params.ref) {
+        try {
+          const locator = await tab.refLocator({ ref: params.ref, element: params.element || '' });
+          const method = params.doubleClick ? 'dblclick' : 'click';
+          const opts = params.button && params.button !== 'left' ? `{ button: ${JSON.stringify(params.button)} }` : '';
+          return `    await page.${locator.resolved}.${method}(${opts});\n`;
+        } catch (e) {
+          return `    // browser_click missing or invalid locator\n`;
+        }
+      }
+      return `    // TODO: support code generation for nested tool ${String(toolName).replace(/[\r\n]+/g, ' ')}\n`;
+    };
 
+    
+    const varMatch = /^\$\{\s*([A-Za-z_$][\w$]*)\s*\}$/.exec(flagName);
+    const switchExpr = varMatch ? varMatch[1] : JSON.stringify(flagValue);
+    let codeStr = `switch (${switchExpr}) {\n`;
+    for (const c of cases) {
+      codeStr += `  case ${JSON.stringify(c.equals)}:\n`;
+      codeStr += await genNested(c.toolName, c.params);
+      codeStr += `    break;\n`;
+    }
+
+    codeStr += `  default:\n`;
+    if (defaultCase) {
+      codeStr += await genNested(defaultCase.toolName, defaultCase.params);
+      codeStr += `    break;\n`;
+    } else {
+      
+      codeStr += `    throw new Error(\`dynamic_switch: no case matched for value "\${${switchExpr}}" and no defaultCase provided\`);\n`;
+    }
+    codeStr += `}`;
+
+    response.addCode(codeStr);
     response.addTextResult(JSON.stringify(payload, null, 2));
   },
 });

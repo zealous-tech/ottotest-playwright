@@ -19,6 +19,27 @@ import { buildValidationErrorPayload, buildValidationPayload, createValidationEv
 import { getTimeout } from '../helpers/utils';
 import { defaultValidationSchema } from '../helpers/schemas';
 
+function generateValidationCode(jsCode: string, locatorString?: string): string {
+  const evaluateTarget = locatorString ? `page.${locatorString}` : 'page';
+  const evaluateArgs = locatorString ? '(el, code)' : '(code)';
+  const funcCallArgs = locatorString ? 'el' : 'null';
+  
+  return `
+const result = await ${evaluateTarget}.evaluate(${evaluateArgs} => {
+  try {
+    const func = new Function('element', 'document', "'use strict'; " + code);
+    return func.call(null, ${funcCallArgs}, document);
+  } catch (e) {
+    return { error: e.message, type: 'execution_error' };
+  }
+}, ${JSON.stringify(jsCode)});
+if (typeof result === 'object' && result !== null && result.type !== 'execution_error') {
+  expect(result.result).toBe('pass');
+} else {
+  expect(result).toBe('pass');
+}
+`;
+}
 export const default_validation = defineTabTool({
   capability: 'core',
   schema: {
@@ -88,6 +109,14 @@ export const default_validation = defineTabTool({
             }
           }, jsCode);
         }
+
+        let codeStr = '';
+        if (ref && element) {
+          codeStr = generateValidationCode(jsCode, locatorString);
+        } else {
+          codeStr = generateValidationCode(jsCode);
+        }
+        response.addCode(codeStr.trim());
 
         const label = element || 'data';
         const validationResult = parseValidationResult(result, label);

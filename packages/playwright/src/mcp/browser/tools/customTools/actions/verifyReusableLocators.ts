@@ -46,6 +46,7 @@ export const verify_reusable_locators = defineTabTool({
           // try next candidate
         }
       }
+      response.addCode(`// Evaluated ${candidates.length} candidates and matched "${matchedId}"`);
       response.addTextResult(JSON.stringify({ matchedId }));
     });
   },

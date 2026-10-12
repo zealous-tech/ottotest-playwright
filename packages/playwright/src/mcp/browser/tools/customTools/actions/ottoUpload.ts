@@ -18,6 +18,10 @@ import { z } from 'playwright-core/lib/mcpBundle';
 import { defineTool } from '../../tool';
 import { fetchAttachment, downloadAttachmentsToLocalDir } from '../helpers/attachments';
 
+const MODAL_STATE_FILE_CHOOSER = 'fileChooser';
+const CODE_COMMENT_FILE_UPLOAD = '// File Upload';
+const CODE_COMMENT_FILE_CHOOSER_CANCELLED = '// File chooser cancelled (no attachments provided)';
+
 const ottoUploadSchema = z.object({
   attachmentUrls: z.array(z.string()).optional().describe(
     'Array of full attachment URLs to upload. The files will be fetched and uploaded to the browser file chooser. If omitted, file chooser is cancelled.'
@@ -39,14 +43,14 @@ export const otto_upload = defineTool({
     response.setIncludeSnapshot();
     const tab = await context.ensureTab();
 
-    const modalState = tab.modalStates().find(state => state.type === 'fileChooser');
+    const modalState = tab.modalStates().find(state => state.type === MODAL_STATE_FILE_CHOOSER);
     if (!modalState)
       throw new Error('No file chooser visible');
 
     tab.clearModalState(modalState);
 
     if (!params.attachmentUrls || params.attachmentUrls.length === 0) {
-      response.addCode('// File chooser cancelled (no attachments provided)');
+      response.addCode(CODE_COMMENT_FILE_CHOOSER_CANCELLED);
       return;
     }
 
@@ -54,7 +58,14 @@ export const otto_upload = defineTool({
     const attachments = await Promise.all(params.attachmentUrls.map(fetchAttachment));
     const localPaths = downloadAttachmentsToLocalDir(attachments, rootDir);
 
-    response.addCode(`await fileChooser.setFiles(${JSON.stringify(localPaths)})`);
+    const codePaths = attachments.map(att => `\${att.${att.attachmentKey || att.fileName}}`);
+
+    response.addCode(
+`${CODE_COMMENT_FILE_UPLOAD}
+await expect.poll(() => lastFileChooser).toBeTruthy();
+const fileChooser = lastFileChooser;
+await fileChooser.setFiles(${JSON.stringify(codePaths).replace(/"/g, "'")});
+lastFileChooser = null; // reset for next file upload`);
 
     await tab.waitForCompletion(async () => {
       await modalState.fileChooser.setFiles(localPaths);

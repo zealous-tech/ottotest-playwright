@@ -693,3 +693,23 @@ export {
   isInputElement,
   setAriaValue,
 };
+/**
+ * Serialize arguments into a string suitable for generating Playwright scripts,
+ * properly preserving RegExp objects.
+ */
+export function serializeArgs(val: any): string {
+  if (val === undefined) return 'undefined';
+  if (val === null) return 'null';
+  if (val instanceof RegExp) return val.toString();
+  if (typeof val === 'string') return JSON.stringify(val);
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (Array.isArray(val)) {
+    return `[${val.map(v => serializeArgs(v)).join(', ')}]`;
+  }
+  if (typeof val === 'object') {
+    const keys = Object.keys(val);
+    const props = keys.map(k => `${JSON.stringify(k)}: ${serializeArgs(val[k])}`);
+    return `{ ${props.join(', ')} }`;
+  }
+  return JSON.stringify(val);
+}

@@ -54,7 +54,7 @@ export const validate_element_order = defineTabTool({
               const locatorString = await generateLocatorString(ref, locator);
               allLocators.push({ element, locatorString });
             } catch {
-              allLocators.push({ element, locatorString: 'The UI Element not found' });
+              allLocators.push({ element, locatorString: "page.locator('UI_Element_not_found')" });
             }
           }
 
@@ -112,6 +112,21 @@ export const validate_element_order = defineTabTool({
           const locatorString = await generateLocatorString(ref, locator);
           locators.push({ element, locatorString });
         }
+
+        let codeStr = '';
+        for (let i = 0; i < locators.length; i++) {
+          codeStr += `const box${i} = await page.${locators[i].locatorString}.boundingBox();\n`;
+          codeStr += `expect(box${i}).not.toBeNull();\n`;
+          codeStr += `const center${i} = { x: box${i}.x + box${i}.width / 2, y: box${i}.y + box${i}.height / 2 };\n`;
+        }
+        for (let i = 0; i < locators.length - 1; i++) {
+          codeStr += `
+const yDiff${i} = center${i}.y - center${i + 1}.y;
+const comparison${i} = Math.abs(yDiff${i}) > 10 ? yDiff${i} : center${i}.x - center${i + 1}.x;
+expect(comparison${i}).toBeLessThanOrEqual(0);
+`;
+        }
+        response.addCode(codeStr.trim());
 
         // Get bounding boxes for all elements
         const boxes: Array<{ element: string; ref: string; box: { x: number; y: number; width: number; height: number } | null }> = [];

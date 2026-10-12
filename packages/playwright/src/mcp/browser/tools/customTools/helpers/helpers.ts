@@ -1298,6 +1298,61 @@ function evaluateWildcardPath(
   };
 }
 
+const DEFAULT_MAP_CONTAINER_SELECTOR = '.c-axs-map-container';
+const DEFAULT_MAP_CLICK_WAIT_TIMEOUT_MS = 2000;
+
+const MAP_RESOLVE_ELEMENT_SNIPPET = `    function resolveFromElement(el) {
+      try {
+        const viewerId = el.dataset?.viewerid;
+        if (viewerId) return window.DvmViewers?.[viewerId];
+      } catch {}
+      const reactKey = Object.getOwnPropertyNames(el).find(p => p.startsWith('__reactFiber') || p.startsWith('__reactInternalInstance'));
+      if (reactKey) {
+        try {
+          return el[reactKey]?.memoizedProps?.children?.[0]?.props?.children?.[4]?.props?.viewer;
+        } catch {}
+      }
+      return null;
+    }`;
+
+function generateMapHandleCode(containerSelector?: string): string {
+  const selector = containerSelector || DEFAULT_MAP_CONTAINER_SELECTOR;
+  return `const mapHandle = await page.evaluateHandle(() => {
+${MAP_RESOLVE_ELEMENT_SNIPPET}
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (el) return resolveFromElement(el);
+    throw new Error('Map not found');
+});`;
+}
+
+function generateMapNodeCoordsCode(nodeId: string): string {
+  return `const coords = await mapHandle.evaluate((map) => {
+   const node = map.getNodeById(${JSON.stringify(nodeId)});
+   if (!node) throw new Error('Node not found in map');
+   const rect = node.getBoundingClientRect();
+   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+});`;
+}
+
+function generateMapClickCode(containerSelector: string | undefined, nodeId: string, waitAfterClick: boolean = false): string {
+  const waitCode = waitAfterClick ? `\nawait page.waitForTimeout(${DEFAULT_MAP_CLICK_WAIT_TIMEOUT_MS});` : '';
+  return `
+${generateMapHandleCode(containerSelector)}
+
+${generateMapNodeCoordsCode(nodeId)}
+await page.mouse.click(coords.x, coords.y);${waitCode}
+`;
+}
+
+function generateMapHoverCode(containerSelector: string | undefined, nodeId: string): string {
+  return `
+${generateMapHandleCode(containerSelector)}
+
+${generateMapNodeCoordsCode(nodeId)}
+await page.mouse.move(coords.x, coords.y);
+`;
+}
+
 export {
   getAllComputedStylesDirect,
   hasAlertDialog,
@@ -1325,4 +1380,8 @@ export {
   isNodeInViewport,
   resolveSectionNodeId,
   resolveSeatNodeId,
+  generateMapClickCode,
+  generateMapHoverCode,
+  DEFAULT_MAP_CONTAINER_SELECTOR,
+  generateMapHandleCode,
 };

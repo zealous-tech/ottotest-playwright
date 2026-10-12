@@ -583,6 +583,34 @@ function handleValidationMode(
     return;
   }
 
+  // Generate code
+  const targetLocatorStr = resolvedLocator ? `locator(${JSON.stringify(resolvedLocator)})` : locatorString;
+  let codeStr = `
+${extractIconFunction.toString()}
+const iconData = await page.${targetLocatorStr}.evaluate(extractIconFunction, { includeColors: true });
+expect(iconData.iconType).toBe(${JSON.stringify(expectedIcon.iconType)});
+`;
+
+  if (expectedIcon.iconData && !isBase64IconData(expectedIcon.iconType, expectedIcon.iconData)) {
+     if (expectedIcon.iconType === 'svg') {
+        codeStr += `
+function normalize(str) { return str.replace(/\\s+/g, ' ').replace(/>\\s+</g, '><').trim(); }
+expect(normalize(iconData.iconData)).toContain(normalize(${JSON.stringify(expectedIcon.iconData)}));
+`;
+     } else {
+        codeStr += `expect(iconData.iconData).toContain(${JSON.stringify(expectedIcon.iconData)});\n`;
+     }
+  }
+
+  if (!ignoreColors && expectedIcon.colors && expectedIcon.colors.length > 0) {
+      codeStr += `
+for (const expectedColor of ${JSON.stringify(expectedIcon.colors)}) {
+    expect(iconData.colors.some(c => c.toLowerCase() === expectedColor.toLowerCase())).toBe(true);
+}
+`;
+  }
+  response.addCode(codeStr.trim());
+
   // Perform icon comparison
   const { passed, comparisonDetails } = compareIcons(actualIcon, expectedIcon, ignoreColors);
 

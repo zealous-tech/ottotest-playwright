@@ -35,8 +35,44 @@ type StyleCheckResult = {
   result: 'pass' | 'fail';
 };
 
-const NOTIFICATION_BUFFER_REF = 'notification-buffer';
 const DEFAULT_NOTIFICATION_LOOKBACK_MS = 15000;
+
+function generateCodeForStyles(checks: StyleCheck[], locatorCode: string): string {
+  let codeStr = '';
+  for (const check of checks) {
+    if (check.operator === 'isEqual' && typeof check.expected === 'string' && !(check.name.toLowerCase().includes('color') || check.name.toLowerCase().includes('background'))) {
+      codeStr += `await expect(${locatorCode}).toHaveCSS('${check.name}', ${JSON.stringify(check.expected)});\n`;
+    } else {
+      const logic = `
+        const actualValue = await ${locatorCode}.evaluate(el => window.getComputedStyle(el).getPropertyValue('${check.name}'));
+        ${parseRGBColor.toString()}
+        ${isColorInRange.toString()}
+        const expected = ${JSON.stringify(check.expected)};
+        if ('${check.operator}' === 'isEqual') {
+           const expRGB = parseRGBColor(expected);
+           const actRGB = parseRGBColor(actualValue || '');
+           if (expRGB && actRGB) {
+              expect(Math.abs(expRGB.r - actRGB.r)).toBeLessThanOrEqual(5);
+              expect(Math.abs(expRGB.g - actRGB.g)).toBeLessThanOrEqual(5);
+              expect(Math.abs(expRGB.b - actRGB.b)).toBeLessThanOrEqual(5);
+           } else {
+              expect(actualValue).toBe(expected);
+           }
+        } else if ('${check.operator}' === 'notEqual') {
+           expect(actualValue).not.toBe(expected);
+        } else if ('${check.operator}' === 'inRange') {
+           if (Array.isArray(expected)) {
+              expect(expected).toContain(actualValue);
+           } else if (typeof expected === 'object' && 'minR' in expected) {
+              expect(isColorInRange(actualValue || '', expected)).toBe(true);
+           }
+        }
+      `;
+      codeStr += logic;
+    }
+  }
+  return codeStr;
+}
 
 /**
  * Evaluate style checks against a computed-style map. The map is keyed exactly as the CSSOM
@@ -162,6 +198,10 @@ export const validate_computed_styles = defineTabTool({
         const { toast: capturedLocator } = notificationLocatorExpressions(hit);
         const resolvedLocator = capturedLocator || ref;
         const bufferLocator = resolvedLocator || `notificationBuffer(${JSON.stringify(notificationText)})`;
+        
+        // Generate Code for Notification
+        const locatorCode = `page.locator(${JSON.stringify(bufferLocator)})`;
+        response.addCode(generateCodeForStyles(checks, locatorCode));
         const capturedStyles = hit?.styles;
 
         let unavailableReason: string | undefined;
@@ -249,6 +289,10 @@ export const validate_computed_styles = defineTabTool({
 
       // Generate locator string after element is confirmed to be attached
       const locatorString = await generateLocatorString(ref, locator);
+
+      // Generate Code for Element
+      const locatorCode = `page.${locatorString}`;
+      response.addCode(generateCodeForStyles(checks, locatorCode));
 
       // 1) Get all computed styles directly
       let allStyles: any;

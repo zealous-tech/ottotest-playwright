@@ -307,6 +307,15 @@ export const validate_notification = defineTabTool({
         ...(resolvedLocator ? { resolvedLocator } : {}),
       };
 
+      const targetLocStr = resolvedLocator ? resolvedLocator : `getByText(${JSON.stringify(typeof expectedText === 'string' ? expectedText : expectedText[0])})`;
+      let codeStr = '';
+      if (matchType === 'not-contains') {
+         codeStr = `await expect(page.${targetLocStr}).toBeHidden();\n`;
+      } else {
+         codeStr = `await expect(page.${targetLocStr}).toBeVisible();\n`;
+      }
+      response.addCode(codeStr);
+
       console.log('Validate Notification:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
     });

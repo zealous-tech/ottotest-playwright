@@ -15,6 +15,8 @@
  */
 import { defineTabTool } from '../../tool';
 import { textExtractionSchema } from '../helpers/schemas';
+import { generateLocatorString } from '../helpers/helpers';
+import { extractTextValue } from '../helpers/playwrightSharedHelpers';
 
 export const text_extraction = defineTabTool({
   capability: 'core',
@@ -28,39 +30,18 @@ export const text_extraction = defineTabTool({
   handle: async (tab, params, response) => {
     const { name, data, ref, element, regex, regexFlags, startIndex, endIndex, useInnerText } = textExtractionSchema.parse(params);
 
-    const extract = (sourceText: string) => {
-      let workingText = sourceText;
-      if (startIndex !== undefined || endIndex !== undefined)
-        workingText = workingText.slice(startIndex, endIndex);
-
-      let extractedValue: string = workingText;
-      if (regex) {
-        let matcher: RegExp;
-        try {
-          // Drop the global flag so we deterministically use the first match.
-          const flags = (regexFlags ?? '').replace(/g/g, '');
-          matcher = new RegExp(regex, flags);
-        } catch (error) {
-          response.addTextResult(JSON.stringify({
-            success: false,
-            error: `Invalid regular expression "${regex}": ${error instanceof Error ? error.message : String(error)}`,
-            extractedData: null,
-          }, null, 2));
-          return;
-        }
-
-        const match = workingText.match(matcher);
-        if (!match) {
-          response.addTextResult(JSON.stringify({
-            success: false,
-            error: `Regular expression "${regex}" did not match the source text`,
-            extractedData: null,
-            data: sourceText,
-          }, null, 2));
-          return;
-        }
-
-        extractedValue = match[1] ?? match[0];
+    const extract = async (sourceText: string) => {
+      let extractedValue: string;
+      try {
+        extractedValue = extractTextValue(sourceText, startIndex, endIndex, regex, regexFlags);
+      } catch (error: any) {
+        response.addTextResult(JSON.stringify({
+          success: false,
+          error: error.message || String(error),
+          extractedData: null,
+          data: sourceText,
+        }, null, 2));
+        return;
       }
 
       const toolResult = {
@@ -71,12 +52,31 @@ export const text_extraction = defineTabTool({
         },
         data: sourceText,
       };
+
+      // Generate Playwright code
+      let codeStr = '';
+      if (data !== undefined) {
+        codeStr += `let ${name} = ${JSON.stringify(data)};\n`;
+      } else {
+        const locatorStr = await generateLocatorString(ref!, element!);
+        codeStr += `let ${name} = await ${locatorStr}.${useInnerText ? 'innerText' : 'textContent'}() ?? '';\n`;
+      }
+      if (startIndex !== undefined || endIndex !== undefined || regex !== undefined) {
+        codeStr += `
+{
+${extractTextValue.toString()}
+${name} = extractTextValue(${name}, ${startIndex}, ${endIndex}, ${regex ? JSON.stringify(regex) : 'undefined'}, ${regexFlags ? JSON.stringify(regexFlags) : 'undefined'});
+}
+`;
+      }
+      response.addCode(codeStr.trim());
+
       response.addTextResult(JSON.stringify(toolResult, null, 2));
     };
 
     // Inline plain-text source (e.g. ${lastAPIResponse}, a stored variable, or a literal).
     if (data !== undefined) {
-      extract(data);
+      await extract(data);
       return;
     }
 
@@ -97,7 +97,7 @@ export const text_extraction = defineTabTool({
         return;
       }
 
-      extract(sourceText);
+      await extract(sourceText);
     });
   },
 });

@@ -1,6 +1,6 @@
 import { defineTabTool } from '../../tool';
 import { seatSchema } from '../helpers/schemas';
-import { isNodeInViewport, getMapHandle, getNodeViewportCoords, resolveSeatNodeId } from '../helpers/helpers';
+import { isNodeInViewport, getMapHandle, getNodeViewportCoords, resolveSeatNodeId, generateMapClickCode } from '../helpers/helpers';
 
 export const select_map_seat = defineTabTool({
   capability: 'core',
@@ -36,6 +36,10 @@ export const select_map_seat = defineTabTool({
     const { x, y } = await getNodeViewportCoords(page, mapHandle, nodeId);
     if (!isNodeInViewport(page, { x, y }))
       throw new Error(`Unable to perform click action on seat ${seat} on row ${row} in section ${sec} as the element is outside of the visible viewport`);
+
+    let codeStr = generateMapClickCode(params.containerSelector, nodeId, false);
+    response.addCode(codeStr.trim());
+
     await page.mouse.click(x, y);
   },
 });

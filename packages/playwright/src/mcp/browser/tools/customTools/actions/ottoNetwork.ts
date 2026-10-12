@@ -2,6 +2,7 @@ import { z } from 'playwright-core/lib/mcpBundle';
 import { defineTabTool } from '../../tool';
 import type * as playwright from 'playwright-core';
 
+const CODE_COMMENT_EXTRACT_NETWORK = '// Extract Network Request';
 
 class RequestsNotFound extends Error {
     constructor(message: string) {
@@ -168,6 +169,36 @@ export const otto_requests = defineTabTool({
 
         const resolvedRequests = [...await allRequests];
 
+        const filterStr = urlNorm || endpointNorm || '';
+        const regexMatch = filterStr.match(/^\/(.+)\/([gimsuy]*)$/);
+        let urlCondition: string;
+        if (regexMatch) {
+            urlCondition = `new RegExp(${JSON.stringify(regexMatch[1])}, ${JSON.stringify(regexMatch[2])}).test(res.url())`;
+        } else if (filterStr) {
+            urlCondition = `res.url().includes(${JSON.stringify(filterStr)})`;
+        } else {
+            urlCondition = `true`;
+        }
+
+        let predicateStr = `res => ${urlCondition}`;
+        if (methodNorm) {
+            predicateStr = `res => res.request().method() === ${JSON.stringify(methodNorm)} && ${urlCondition}`;
+        }
+
+        let selectResponseCode: string;
+        if (indexParam === 'first') {
+            selectResponseCode = `capturedResponses.find(${predicateStr})`;
+        } else if (typeof indexParam === 'number') {
+            selectResponseCode = `capturedResponses.filter(${predicateStr})[${indexParam}]`;
+        } else {
+            selectResponseCode = `capturedResponses.filter(${predicateStr}).pop()`;
+        }
+
+        const generatedNetworkCode = `${CODE_COMMENT_EXTRACT_NETWORK}
+await expect.poll(() => ${selectResponseCode}).toBeTruthy();
+const response = ${selectResponseCode};
+const lastAPIResponse = await response.json().catch(() => response.text());`;
+
         if (!needsCollectAll) {
             // Fast path: original behavior — iterate backwards, return first (latest) match
             for (let i = resolvedRequests.length - 1; i >= 0; i--) {
@@ -181,6 +212,7 @@ export const otto_requests = defineTabTool({
                     const out = await safeRender(req, res, logType);
                     if (hasBodyError(out))
                         continue;
+                    response.addCode(generatedNetworkCode);
                     response.addResult({ text: out });
                     return;
                 }
@@ -190,12 +222,14 @@ export const otto_requests = defineTabTool({
                     if (hasBodyError(detailed))
                         continue;
                     if (containsAllKeywords(detailed, keywordsNorm)) {
+                        response.addCode(generatedNetworkCode);
                         response.addResult({ text: detailed });
                         return;
                     }
                 } catch {
                     const basic = renderRequest(req, res);
                     if (containsAllKeywords(basic, keywordsNorm)) {
+                        response.addCode(generatedNetworkCode);
                         response.addResult({ text: basic });
                         return;
                     }
@@ -274,6 +308,7 @@ export const otto_requests = defineTabTool({
                         );
                     }
                 }
+                response.addCode(generatedNetworkCode);
                 response.addResult({ text: matches[selectedIdx].rendered });
                 return;
             }

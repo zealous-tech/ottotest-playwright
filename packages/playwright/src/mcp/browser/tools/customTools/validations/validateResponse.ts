@@ -18,6 +18,7 @@ import { defineTabTool } from '../../tool';
 import { compareValues, evaluateWildcardPath } from '../helpers/helpers';
 import { validateResponseSchema } from '../helpers/schemas';
 import { type ValidationPayload } from '../common/common';
+import { evaluateJsonPathForValidation } from '../helpers/playwrightSharedHelpers';
 
 export const validate_response = defineTabTool({
   capability: 'core',
@@ -201,6 +202,56 @@ export const validate_response = defineTabTool({
       status,
       evidence: evidenceArray,
     };
+
+    let codeStr = `
+{
+${evaluateJsonPathForValidation.toString()}
+
+function validateResponseValue(actualValue, expected, operator) {
+  if (operator === 'contains') {
+    if (Array.isArray(expected)) {
+       for (const e of expected) expect(actualValue).toContain(e);
+    } else {
+       expect(String(actualValue)).toContain(String(expected));
+    }
+  } else if (operator === 'equals') {
+    expect(actualValue).toEqual(expected);
+  } else if (operator === 'not-equals') {
+    expect(actualValue).not.toEqual(expected);
+  } else if (operator === 'exists') {
+    expect(actualValue !== undefined && actualValue !== null).toBe(expected);
+  } else if (operator === 'matches') {
+    expect(String(actualValue)).toMatch(new RegExp(expected));
+  } else if (operator === 'greater-than') {
+    expect(Number(actualValue)).toBeGreaterThan(Number(expected));
+  } else if (operator === 'less-than') {
+    expect(Number(actualValue)).toBeLessThan(Number(expected));
+  } else if (operator === 'is-type') {
+    expect(typeof actualValue).toBe(expected);
+  } else if (operator === 'in-range') {
+    if (Array.isArray(expected)) {
+      expect(expected).toContain(actualValue);
+    } else {
+      expect(actualValue >= expected.min && actualValue <= expected.max).toBe(true);
+    }
+  }
+}
+
+const parsedResponseData = JSON.parse(${JSON.stringify(responseData)});
+`;
+    for (const check of checks) {
+      codeStr += `
+{
+  const expected = ${JSON.stringify(check.expected)};
+  const matches = evaluateJsonPathForValidation(parsedResponseData, ${JSON.stringify(check.jsonPath)});
+
+  for (const actualValue of matches) {
+    validateResponseValue(actualValue, expected, '${check.operator}');
+  }
+`;
+    }
+    codeStr += `\n}\n`;
+    response.addCode(codeStr.trim());
 
     console.log('Validate response JSON path:', payload);
     response.addTextResult(JSON.stringify(payload, null, 2));

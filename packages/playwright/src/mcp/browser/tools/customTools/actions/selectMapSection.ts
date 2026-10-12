@@ -1,6 +1,6 @@
 import { defineTabTool } from '../../tool';
 import { sectionSchema } from '../helpers/schemas';
-import { isNodeInViewport, getMapHandle, getNodeViewportCoords, resolveSectionNodeId } from '../helpers/helpers';
+import { isNodeInViewport, getMapHandle, getNodeViewportCoords, resolveSectionNodeId, generateMapClickCode } from '../helpers/helpers';
 
 export const select_map_section = defineTabTool({
   capability: 'core',
@@ -25,6 +25,10 @@ export const select_map_section = defineTabTool({
     const { x, y } = await getNodeViewportCoords(page, mapHandle, nodeId);
     if (!isNodeInViewport(page, { x, y }))
       throw new Error(`Unable to perform click action on the "${section}" section as the element is outside of the visible viewport`);
+
+    let codeStr = generateMapClickCode(params.containerSelector, nodeId, true);
+    response.addCode(codeStr.trim());
+
     await page.mouse.click(x, y);
     await page.waitForTimeout(2000);
   },

@@ -136,6 +136,20 @@ export const validate_element_position = defineTabTool({
         locatorString1 = await generateLocatorString(ref1, locator1);
         locatorString2 = await generateLocatorString(ref2, locator2);
 
+        let codeStr = `
+const box1 = await page.${locatorString1}.boundingBox();
+const box2 = await page.${locatorString2}.boundingBox();
+expect(box1).not.toBeNull();
+expect(box2).not.toBeNull();
+const center1 = { x: box1.x + box1.width / 2, y: box1.y + box1.height / 2 };
+const center2 = { x: box2.x + box2.width / 2, y: box2.y + box2.height / 2 };
+`;
+        if (relationship === 'left') codeStr += 'expect(center1.x).toBeLessThan(center2.x);\n';
+        if (relationship === 'right') codeStr += 'expect(center1.x).toBeGreaterThan(center2.x);\n';
+        if (relationship === 'up') codeStr += 'expect(center1.y).toBeLessThan(center2.y);\n';
+        if (relationship === 'down') codeStr += 'expect(center1.y).toBeGreaterThan(center2.y);\n';
+        response.addCode(codeStr.trim());
+
         // Get bounding boxes for both elements
         const box1 = await locator1.boundingBox();
         const box2 = await locator2.boundingBox();
