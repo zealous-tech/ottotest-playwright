@@ -19,6 +19,11 @@ import path from 'path';
 import { defineTool } from '../../tool';
 import { fileDownloadSchema } from '../helpers/schemas';
 
+const DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 30;
+const DOWNLOAD_POLL_INTERVAL_MS = 500;
+const CODE_COMMENT_FILE_DOWNLOAD = `// File Download
+// Wait for the download to be assigned to our global listener variable`;
+
 export const otto_download = defineTool({
   capability: 'core',
 
@@ -39,7 +44,7 @@ export const otto_download = defineTool({
       throw new Error('hubUploadUrl is required. This should be automatically injected by the command hub.');
 
     let downloads = (tab as any)._downloads as { finished: boolean; outputFile: string; download: { suggestedFilename(): string } }[];
-    const timeoutMs = (params.timeout ?? 30) * 1000;
+    const timeoutMs = (params.timeout ?? DEFAULT_DOWNLOAD_TIMEOUT_SECONDS) * 1000;
 
     if (params.waitForDownload) {
       const startCount = downloads.length;
@@ -49,7 +54,7 @@ export const otto_download = defineTool({
         const lastDownload = downloads[downloads.length - 1];
         if (downloads.length > startCount && lastDownload?.finished)
           break;
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, DOWNLOAD_POLL_INTERVAL_MS));
       }
     }
 
@@ -90,5 +95,12 @@ export const otto_download = defineTool({
       fileType: ext,
       ...hubResult,
     }, null, 2));
+
+    response.addCode(
+`${CODE_COMMENT_FILE_DOWNLOAD}
+await expect.poll(() => lastDownload).toBeTruthy();
+const download = lastDownload;
+const ${params.fileName} = await download.path();
+lastDownload = null; // reset for next download`);
   },
 });

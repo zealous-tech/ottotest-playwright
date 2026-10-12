@@ -46,6 +46,17 @@ export const validate_element_visibility = defineTabTool({
 
       const timeout = getTimeout(tab.context);
 
+      let codeStr = `
+await expect(async () => {
+  let found = false;
+  for (const frame of page.frames()) {
+    if (await frame.locator(${JSON.stringify(locator)}).isVisible()) { found = true; break; }
+  }
+  expect(found).toBe(${visibility === 'visible'});
+}).toPass({ timeout: ${timeout} });
+`;
+      response.addCode(codeStr.trim());
+
       try {
         const results = await checkLocatorVisibilityInAllFrames(tab.page, locator, matchType, timeout);
 

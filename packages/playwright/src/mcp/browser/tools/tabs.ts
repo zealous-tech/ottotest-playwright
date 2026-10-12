@@ -36,16 +36,23 @@ const browserTabs = defineTool({
     switch (params.action) {
       case 'list': {
         await context.ensureTab();
+        // listing tabs doesn't need playwright code output
         break;
       }
       case 'new': {
         // @ZEALOUS UPDATE - wait for load state after creating new tab
         const newTab = await context.newTab();
         await newTab.page.waitForLoadState('load');
+        response.addCode(`await page.context().newPage();`);
         break;
       }
       case 'close': {
         await context.closeTab(params.index);
+        if (params.index !== undefined) {
+           response.addCode(`await page.context().pages()[${params.index}].close();`);
+        } else {
+           response.addCode(`await page.close();`);
+        }
         break;
       }
       case 'select': {
@@ -54,6 +61,7 @@ const browserTabs = defineTool({
         // @ZEALOUS UPDATE - wait for load state after selecting tab
         const selectedTab = await context.selectTab(params.index);
         await selectedTab.page.waitForLoadState('load');
+        response.addCode(`await page.context().pages()[${params.index}].bringToFront();`);
         break;
       }
     }

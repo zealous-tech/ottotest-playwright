@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import * as jp from 'jsonpath';
 import { defineTabTool } from '../../tool';
 import { dataExtractionSchema } from '../helpers/schemas';
+import { extractJsonPathValue } from '../helpers/playwrightSharedHelpers';
 
 export const data_extraction = defineTabTool({
   capability: 'core',
@@ -46,37 +46,7 @@ export const data_extraction = defineTabTool({
       }
 
       try {
-        const normalizedPath = jsonPath.startsWith('$')
-          ? jsonPath
-          : jsonPath.startsWith('[')
-            ? `$${jsonPath}`
-            : `$.${jsonPath}`;
-
-        if (normalizedPath.endsWith('.length')) {
-          const targetPath = normalizedPath.slice(0, -'.length'.length);
-          const targetResult = targetPath === '$'
-            ? [parsedResponseData]
-            : jp.query(parsedResponseData, targetPath);
-
-          const targetValue =
-            targetResult.length === 0 ? null
-            : targetResult.length === 1 ? targetResult[0]
-            : targetResult;
-
-          if (!Array.isArray(targetValue)) {
-            response.addTextResult(JSON.stringify({
-              success: false,
-              error: `Failed to extract length: path "${targetPath}" did not resolve to an array`,
-              extractedData: null
-            }, null, 2));
-            return;
-          }
-
-          extractedValue = targetValue.length;
-        } else {
-          const queryResult = jp.query(parsedResponseData, normalizedPath);
-          extractedValue = queryResult.length === 0 ? null : queryResult.length === 1 ? queryResult[0] : queryResult;
-        }
+        extractedValue = extractJsonPathValue(parsedResponseData, jsonPath);
       } catch (error) {
         response.addTextResult(JSON.stringify({
           success: false,
@@ -99,6 +69,20 @@ export const data_extraction = defineTabTool({
       },
       data: parsedResponseData,
     };
+
+    let codeStr = `const data_${name} = ${JSON.stringify(data)};\n`;
+    if (jsonPath) {
+        codeStr += `
+const parsed_${name} = JSON.parse(data_${name});
+let ${name};
+${extractJsonPathValue.toString()}
+${name} = extractJsonPathValue(parsed_${name}, ${JSON.stringify(jsonPath)});
+`;
+    } else {
+        codeStr += `const ${name} = data_${name};\n`;
+    }
+    response.addCode(codeStr.trim());
+
     response.addTextResult(JSON.stringify(toolResult, null, 2));
   },
 });

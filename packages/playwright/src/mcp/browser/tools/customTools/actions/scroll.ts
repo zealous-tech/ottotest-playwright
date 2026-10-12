@@ -24,12 +24,14 @@ function performScroll(elementOrArgs: any, locatorArgs?: any): void {
   const isPageContext = locatorArgs === undefined;
   const args = isPageContext ? elementOrArgs : locatorArgs;
   const element = isPageContext ? null : elementOrArgs;
-  const { amount, direction, unit } = args;
+  const amount = args.amount;
+  const direction = args.direction;
+  const unit = args.unit;
 
   const DEFAULT_COLUMN_SCROLL = 150;
   const DEFAULT_ROW_SCROLL = 50;
 
-  function findScrollTarget(el: any, direction: string): any {
+  function findScrollTarget(el: any): any {
     let target = el;
     let fallbackTarget = null;
     while (target && target !== document.body && target !== document.documentElement) {
@@ -56,7 +58,7 @@ function performScroll(elementOrArgs: any, locatorArgs?: any): void {
     return target;
   }
 
-  function calculateScrollAmount(target: any, amount: number, direction: string, unit: string): number {
+  function calculateScrollAmount(target: any): number {
     let calculatedAmount = amount;
     if ((unit === 'columns' || unit === 'rows') && target && target !== document.body && target !== document.documentElement) {
        let track = target;
@@ -108,7 +110,7 @@ function performScroll(elementOrArgs: any, locatorArgs?: any): void {
     return calculatedAmount;
   }
 
-  function executeScroll(target: any, direction: string, unit: string, calculatedAmount: number): void {
+  function executeScroll(target: any, calculatedAmount: number): void {
     let dx = 0;
     let dy = 0;
     if (unit === 'max') {
@@ -129,12 +131,12 @@ function performScroll(elementOrArgs: any, locatorArgs?: any): void {
   }
 
   if (element) {
-    const target = findScrollTarget(element, direction);
-    const calculatedAmount = calculateScrollAmount(target, amount, direction, unit);
-    executeScroll(target, direction, unit, calculatedAmount);
+    const target = findScrollTarget(element);
+    const calculatedAmount = calculateScrollAmount(target);
+    executeScroll(target, calculatedAmount);
   } else {
     const calcAmt = direction === 'left' || direction === 'right' ? (amount * DEFAULT_COLUMN_SCROLL) : (amount * DEFAULT_ROW_SCROLL);
-    executeScroll(null, direction, unit, calcAmt);
+    executeScroll(null, calcAmt);
   }
 }
 
@@ -173,7 +175,7 @@ export const browser_scroll = defineTabTool({
 
       if (params.currentElement) {
         const { locator: containerLoc, resolved: containerResolved } = await tab.refLocator(params.currentElement);
-        response.addCode(`// Scroll using internal helper\nawait page.${containerResolved}.evaluate(performScroll, { amount: ${amount}, direction: '${direction}', unit: '${unit}' });`);
+        response.addCode(`\n${performScroll.toString()}\nawait page.${containerResolved}.evaluate(performScroll, { amount: ${amount}, direction: '${direction}', unit: '${unit}' });`);
 
         await tab.waitForCompletion(async () => {
           await containerLoc.evaluate(performScroll, { amount, direction, unit });
@@ -182,7 +184,7 @@ export const browser_scroll = defineTabTool({
         const containerName = params.currentElement.element || params.currentElement.ref;
         response.addTextResult(`Scrolled container "${containerName}" by ${amount} pixels ${params.direction}`);
       } else {
-        response.addCode(`// Scroll using internal helper\nawait page.evaluate(performScroll, { amount: ${amount}, direction: '${direction}', unit: '${unit}' });`);
+        response.addCode(`\n${performScroll.toString()}\nawait page.evaluate(performScroll, { amount: ${amount}, direction: '${direction}', unit: '${unit}' });`);
 
         await tab.waitForCompletion(async () => {
           await tab.page.evaluate(performScroll, { amount, direction, unit });

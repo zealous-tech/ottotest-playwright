@@ -56,6 +56,7 @@ export const generate_locator = defineTabTool({
           },
         };
 
+        response.addCode(`// Executed for "${element}"`);
         response.addTextResult(JSON.stringify(payload, null, 2));
       });
     } catch (error) {

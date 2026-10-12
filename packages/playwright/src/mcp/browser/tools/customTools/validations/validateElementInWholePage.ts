@@ -59,6 +59,30 @@ export const validate_element_in_whole_page = defineTabTool({
 
       const timeout = getTimeout(tab.context);
 
+      let codeStr = '';
+      if (locator) {
+        codeStr = `
+await expect(async () => {
+  let found = false;
+  for (const frame of page.frames()) {
+    if (await frame.locator(${JSON.stringify(locator)}).isVisible()) { found = true; break; }
+  }
+  expect(found).toBe(${matchType === 'exist'});
+}).toPass({ timeout: ${timeout} });
+`;
+      } else {
+        codeStr = `
+await expect(async () => {
+  let found = false;
+  for (const frame of page.frames()) {
+    if (await frame.getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(accessibleName)} }).isVisible()) { found = true; break; }
+  }
+  expect(found).toBe(${matchType === 'exist'});
+}).toPass({ timeout: ${timeout} });
+`;
+      }
+      response.addCode(codeStr.trim());
+
       try {
         // early exit on first match for positive checks;
         // full scan for not-exist across all frames.

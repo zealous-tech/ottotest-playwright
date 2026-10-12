@@ -17,8 +17,28 @@ import { expect } from '@zealous-tech/playwright/test';
 import { type ValidationPayload } from '../common/common';
 import { defineTabTool } from '../../tool';
 import { generateLocatorString, getAssertionEvidence } from '../helpers/helpers';
-import { getTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue, serializeForEvidence } from '../helpers/utils';
+import { getTimeout, getElementErrorMessage, getAssertionMessage, convertStringToRegExp, normalizeValue, serializeForEvidence, serializeArgs } from '../helpers/utils';
 import { validateDomAssertionsSchema } from '../helpers/schemas';
+
+const argsExtractors: Record<string, (a: any) => any[]> = {
+  toHaveAttribute: a => a.value !== undefined ? [a.name, a.value] : [a.name],
+  toHaveText: a => [a.expected],
+  toContainText: a => [a.expected],
+  toHaveValue: a => [a.value],
+  toHaveClass: a => [a.expected],
+  toContainClass: a => [a.expected],
+  toHaveValues: a => [a.values],
+  toHaveCount: a => [a.count],
+  toHaveId: a => [a.id],
+  toHaveJSProperty: a => [a.name, a.value],
+  toHaveCSS: a => [a.name, a.value],
+  toHaveRole: a => [a.role],
+  toHaveAccessibleDescription: a => [a.description],
+  toHaveAccessibleErrorMessage: a => [a.errorMessage],
+  toHaveAccessibleName: a => [a.name],
+  toHaveScreenshot: a => a.name !== undefined ? [a.name] : [],
+  toMatchAriaSnapshot: a => a.name !== undefined ? [a.name] : []
+};
 
 export const validate_dom_assertions = defineTabTool({
   capability: 'core',
@@ -43,7 +63,6 @@ export const validate_dom_assertions = defineTabTool({
 
         // Convert string RegExp patterns to actual RegExp objects
         const convertedArgs = convertStringToRegExp(args);
-        // console.log('convertedArgs', convertedArgs);
         const { assertionType: name } = convertedArgs;
         // Get message for current assertion with element description
         const message: string = getAssertionMessage(name, element, negate);
@@ -85,6 +104,19 @@ export const validate_dom_assertions = defineTabTool({
 
           // Helper function to create evidence command
 
+          locatorString = await generateLocatorString(ref, targetLocator);
+
+          let argsList: any[] = argsExtractors[name] ? argsExtractors[name](mainArgs) : [];
+
+          if (Object.keys(options || {}).length > 0) {
+            argsList.push(options);
+          }
+
+          const argsStr = argsList.map(a => serializeArgs(a)).join(', ');
+          
+          if (name !== 'selectHasValue') {
+            response.addCode(`await expect(page.${locatorString}).${negate ? 'not.' : ''}${name}(${argsStr});`);
+          }
 
           // Execute the specific assertion by calling the method dynamically
           let assertionResult;
@@ -628,11 +660,7 @@ export const validate_dom_assertions = defineTabTool({
           }
 
           result.result = 'pass';
-          console.log(`validate_dom_assertions: ${name}${negate ? ' (negated)' : ''} passed for element "${element}"`);
-
         } catch (error) {
-          console.error('error in validate_dom_assertions', error);
-
           // Handle assertion errors - set result and evidence
           result.result = 'fail';
           result.error = error instanceof Error ? error.message : String(error);
@@ -665,8 +693,6 @@ export const validate_dom_assertions = defineTabTool({
         evidence,
       };
 
-      console.log('Validate DOM Assertions:');
-      console.log(payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
     });
   },

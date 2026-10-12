@@ -75,6 +75,15 @@ export const validate_tab_count = defineTabTool({
         status: status,
         evidence: evidenceArray,
       };
+
+      let codeStr = '';
+      if (operator === 'equals') {
+         codeStr = `await expect.poll(() => page.context().pages().length).toBe(${expectedCount});`;
+      } else if (operator === 'notEquals') {
+         codeStr = `await expect.poll(() => page.context().pages().length).not.toBe(${expectedCount});`;
+      }
+      response.addCode(codeStr);
+
       console.log('Validate tab count:', payload);
       response.addTextResult(JSON.stringify(payload, null, 2));
 

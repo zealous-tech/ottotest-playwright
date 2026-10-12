@@ -3,6 +3,7 @@ import {
   getMapHandle,
   resolveSeatNodeId,
   resolveSectionNodeId,
+  DEFAULT_MAP_CONTAINER_SELECTOR,
 } from '../helpers/helpers';
 import { validateMapNodeSchema } from '../helpers/schemas';
 import { type ValidationPayload } from '../common/common';
@@ -112,6 +113,48 @@ export const validate_seat_section_on_map = defineTabTool({
       [t.section && `section ${t.section}`, t.row && `row ${t.row}`, t.seat && `seat ${t.seat}`]
         .filter(Boolean).join(', ');
 
+    let codeStr = `
+const mapHandle = await page.evaluateHandle(() => {
+    function resolveFromElement(el) {
+      try {
+        const viewerId = el.dataset?.viewerid;
+        if (viewerId) return window.DvmViewers?.[viewerId];
+      } catch {}
+      const reactKey = Object.getOwnPropertyNames(el).find(p => p.startsWith('__reactFiber') || p.startsWith('__reactInternalInstance'));
+      if (reactKey) {
+        try {
+          return el[reactKey]?.memoizedProps?.children?.[0]?.props?.children?.[4]?.props?.viewer;
+        } catch {}
+      }
+      return null;
+    }
+    const el = document.querySelector(${JSON.stringify(params.containerSelector || DEFAULT_MAP_CONTAINER_SELECTOR)});
+    if (el) return resolveFromElement(el);
+    throw new Error('Map not found');
+});
+expect(mapHandle).toBeTruthy();
+
+const getActualStyle = (map, nodeId, nodeType) => {
+    const node = map.getNodeById(nodeId);
+    if (!node) return null;
+    const state = node.state || 'available';
+    const tag = node.tag || 'none';
+    const isHovered = !!node.hover;
+    const description = node.description || '';
+    const hoverKey = isHovered ? 'hover' : 'normal';
+    const stylesArray = map.getStyles();
+    const arrayIndex = nodeType === 'seat' ? 1 : 0;
+    const typeKey = nodeType === 'general_admission' ? 'general_admission' : nodeType;
+    let cursor = stylesArray[arrayIndex];
+    for (const key of [typeKey, state, hoverKey, tag]) {
+        cursor = cursor?.[key];
+        if (!cursor) return null;
+    }
+    return { style: cursor, tag, hover: isHovered, state, description };
+};
+
+${isHexColorInRange.toString()}
+`;
     // ── Loop over targets ────────────────────────────────────────────────────
     const allChecks:    Check[]  = [];
     const errorEvidence: Array<{ command: string; message: string }> = [];
@@ -180,6 +223,12 @@ export const validate_seat_section_on_map = defineTabTool({
       // 4. Build checks for this target
       const style = evalResult.actualStyle;
 
+      const targetVar = 'node_' + nodeId.replace(/[-]/g, '_');
+      codeStr += `
+const ${targetVar} = await mapHandle.evaluate((map) => getActualStyle(map, ${JSON.stringify(nodeId)}, ${JSON.stringify(params.nodeType)}));
+expect(${targetVar}).not.toBeNull();
+`;
+
       for (const key of Object.keys(styleCheckConfigs) as Array<keyof typeof expectedStyles>) {
         if (expectedStyles[key] === undefined) continue;
         const cfg    = styleCheckConfigs[key as string];
@@ -188,6 +237,11 @@ export const validate_seat_section_on_map = defineTabTool({
         if (cfg.type === 'color') {
           const range   = expectedStyles[key] as ColorRange;
           const inRange = !!(actual && isHexColorInRange(actual, range.from, range.to));
+          if (range.negate) {
+             codeStr += `expect(isHexColorInRange(${targetVar}.style.${cfg.property}, ${JSON.stringify(range.from)}, ${JSON.stringify(range.to)})).toBe(false);\n`;
+          } else {
+             codeStr += `expect(isHexColorInRange(${targetVar}.style.${cfg.property}, ${JSON.stringify(range.from)}, ${JSON.stringify(range.to)})).toBe(true);\n`;
+          }
           allChecks.push({
             property:  cfg.property,
             expected:  range.negate ? `NOT ${range.from}–${range.to}` : `${range.from}–${range.to}`,
@@ -200,6 +254,11 @@ export const validate_seat_section_on_map = defineTabTool({
           const param    = expectedStyles[key] as ExactParam;
           const expected = cfg.resolveExpected(param.value);
           const matches  = actual === expected;
+          if (param.negate) {
+             codeStr += `expect(${targetVar}.style.${cfg.property}).not.toBe(${JSON.stringify(expected)});\n`;
+          } else {
+             codeStr += `expect(${targetVar}.style.${cfg.property}).toBe(${JSON.stringify(expected)});\n`;
+          }
           allChecks.push({
             property:  cfg.property,
             expected:  param.negate ? `NOT ${expected}` : expected,
@@ -227,6 +286,19 @@ export const validate_seat_section_on_map = defineTabTool({
         const matches = isFilteredWildcard
           ? typeof actual === 'string' && !actual.startsWith('filtered')
           : actual === param.value;
+        if (isFilteredWildcard) {
+          if (param.negate) {
+            codeStr += `expect(typeof ${targetVar}.${key} === 'string' && ${targetVar}.${key}.startsWith('filtered')).toBe(true);\n`;
+          } else {
+            codeStr += `expect(typeof ${targetVar}.${key} === 'string' && ${targetVar}.${key}.startsWith('filtered')).toBe(false);\n`;
+          }
+        } else {
+          if (param.negate) {
+             codeStr += `expect(${targetVar}.${key}).not.toBe(${JSON.stringify(param.value)});\n`;
+          } else {
+             codeStr += `expect(${targetVar}.${key}).toBe(${JSON.stringify(param.value)});\n`;
+          }
+        }
 
         allChecks.push({
           property:  key,
@@ -268,6 +340,7 @@ export const validate_seat_section_on_map = defineTabTool({
       evidence: [...checksEvidence, ...errorEvidence],
     };
 
+    response.addCode(codeStr.trim());
     response.addTextResult(JSON.stringify(payload, null, 2));
   },
 });

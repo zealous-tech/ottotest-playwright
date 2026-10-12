@@ -17,6 +17,10 @@
 import { z } from 'playwright-core/lib/mcpBundle';
 import { defineTabTool } from './tool';
 
+const CODE_COMMENT_DIALOG_HANDLER = `// Dialog Handler
+// NOTE: Dialogs are now automatically handled by the global 'page.on("dialog")' listener at the top of the test.
+// The action that triggered this dialog should be right above this step.`;
+
 export const handleDialog = defineTabTool({
   capability: 'core',
 
@@ -39,6 +43,9 @@ export const handleDialog = defineTabTool({
       throw new Error('No dialog visible');
 
     tab.clearModalState(dialogState);
+    
+    response.addCode(CODE_COMMENT_DIALOG_HANDLER);
+
     await tab.waitForCompletion(async () => {
       if (params.accept)
         await dialogState.dialog.accept(params.promptText);

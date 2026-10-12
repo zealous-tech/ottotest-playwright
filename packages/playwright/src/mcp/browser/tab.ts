@@ -345,7 +345,7 @@ export class Tab extends EventEmitter<TabEventsInterface> {
         if (params.element)
           locator = locator.describe(params.element);
         //const { resolvedSelector } = await locator._resolveSelector();
-        return { locator, resolved: ''};
+        return { locator, resolved: code };
       } catch (error) {
         throw new Error(`Failed to execute Playwright command "${code}": ${error instanceof Error ? error.message : String(error)}`);
       }

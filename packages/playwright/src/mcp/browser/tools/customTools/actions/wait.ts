@@ -30,6 +30,7 @@ export const wait = defineTabTool({
 
     await tab.waitForCompletion(async () => {
       await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+      response.addCode(`await page.waitForTimeout(${seconds * 1000});`);
       response.addTextResult(`Waited for ${seconds} second(s)`);
     });
   },
